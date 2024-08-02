@@ -1,8 +1,6 @@
 package com.ivmiku.mikumq.manager;
 
-import com.ivmiku.mikumq.core.Binding;
-import com.ivmiku.mikumq.core.Exchange;
-import com.ivmiku.mikumq.core.MessageQueue;
+import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.BindingDao;
 import com.ivmiku.mikumq.dao.ExchangeDao;
 import com.ivmiku.mikumq.dao.QueueDao;
@@ -20,9 +18,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ItemManager {
     private final ConcurrentHashMap<String, Exchange> exchangeMap = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, MessageQueue> queueMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, LinkedList<Message>> messageList = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, LinkedList<MessageStatus>> messageList = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Binding>> bindingMap = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Message> messageMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, LinkedList<MessageRecorder>> consumerMsgMap = new ConcurrentHashMap<>();
     /**
      * 等待消费者发送确认消费信息
      */
@@ -108,11 +107,20 @@ public class ItemManager {
     }
 
     public void sendMessage(String queueName, Message message) {
-        LinkedList<Message> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
-        list.add(message);
+        LinkedList<MessageStatus> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
+        MessageStatus status = new MessageStatus();
+        status.setMessageId(message.getId());
+        MessageQueue queue = queueMap.get(queueName);
+        status.setWaitingNum(queue.getListener().size());
+        list.add(status);
+        for (String tag : queue.getListener()){
+            List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(tag, k-> new LinkedList<>());
+            MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
+            consumerMsg.add(recorder);
+        }
     }
 
-    public LinkedList<Message> getMessageList(String queueName) {
+    public LinkedList<MessageStatus> getMessageList(String queueName) {
         return messageList.get(queueName);
     }
 
@@ -160,6 +168,15 @@ public class ItemManager {
         synchronized (deadQueueMap) {
             deadQueueMap.put(queueName, deadMap);
         }
+    }
+
+    public void insertUnreadMessage(String messageId, String consumerTag, String queueName) {
+        List<MessageRecorder> messageList = consumerMsgMap.computeIfAbsent(consumerTag, k -> new LinkedList<>());
+        messageList.add(new MessageRecorder(messageId, queueName));
+    }
+
+    public List<MessageRecorder> getUnreadMessage(String consumerTag) {
+        return consumerMsgMap.get(consumerTag);
     }
 
     public List<String> getQueueList() {

@@ -4,7 +4,6 @@ import cn.hutool.crypto.SecureUtil;
 import com.ivmiku.mikumq.core.User;
 import com.ivmiku.mikumq.dao.UserDao;
 
-import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -40,6 +39,10 @@ public class PasswordUtil {
 
     public static boolean login(String username, String password) {
         User user = UserDao.getUserByName(username);
-        return user.getPassword().equals(encrypt(password, user.getSalt()));
+        if (user != null) {
+            return user.getPassword().equals(encrypt(password, user.getSalt()));
+        } else {
+            return false;
+        }
     }
 }

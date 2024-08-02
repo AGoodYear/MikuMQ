@@ -1,6 +1,7 @@
 package com.ivmiku.mikumq.manager;
 
 import cn.hutool.core.util.ObjectUtil;
+import com.ivmiku.mikumq.core.MessageRecorder;
 import com.ivmiku.mikumq.entity.Message;
 import com.ivmiku.mikumq.entity.Response;
 import com.ivmiku.mikumq.response.MessageBody;
@@ -11,49 +12,45 @@ import org.smartboot.socket.transport.WriteBuffer;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * 处理消费者的消息发送工作
+ * @author Aurora
+ */
 public class ConsumerManager {
     private final Server server;
     private final BlockingQueue<String> waitingQueue = new LinkedBlockingQueue<>();
-    private Thread thread;
-    private ExecutorService scanThread;
-    private ExecutorService processThread;
+    private final ExecutorService processThread;
     @Setter
     private HashMap<String, String> params;
 
     public ConsumerManager(Server server, HashMap<String, String> consumerConfig) {
         this.server = server;
         params = consumerConfig;
-        scanThread = Executors.newFixedThreadPool(Integer.parseInt(params.get("scanThread")));
+        ExecutorService scanThread = Executors.newFixedThreadPool(Integer.parseInt(params.get("scanThread")));
         processThread = Executors.newCachedThreadPool();
         for (int i=0; i<Integer.parseInt(params.get("scanThread")); i++) {
             scanThread.execute(() -> {
                 while (true) {
                     try {
-                        String queueName = waitingQueue.take();
+                        String consumerTag = waitingQueue.take();
                         processThread.execute(() -> {
-                            LinkedList<Message> list = server.getItemManager().getMessageList(queueName);
-                            List<String> listener = server.getItemManager().getQueue(queueName).getListener();
-                            Message message = list.pollFirst();
-                            boolean requireAck = server.getItemManager().getQueue(queueName).isAutoAck();
-                            requireAck = !requireAck;
-                            for (String tag : listener) {
-                                try {
-                                    sendToConsumer(message, tag, queueName, requireAck);
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
+                            MessageRecorder recorder = server.getItemManager().getUnreadMessage(consumerTag).removeFirst();
+                            Message message = server.getItemManager().getMessage(recorder.getMessageId());
+                            boolean requireAck = !server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
+                            try {
+                                sendToConsumer(message, consumerTag, recorder.getQueueName(), requireAck);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
                             }
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
                             } else {
-                                server.getItemManager().waitingForAck(message.getId(), queueName);
+                                server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
                             }
                         });
 
@@ -75,9 +72,9 @@ public class ConsumerManager {
         writeBuffer.flush();
     }
 
-    public void addQueue(String queueName){
+    public void addQueue(String consumerTag){
         try {
-            waitingQueue.put(queueName);
+            waitingQueue.put(consumerTag);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

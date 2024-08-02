@@ -6,14 +6,11 @@ import com.ivmiku.mikumq.core.Exchange;
 import com.ivmiku.mikumq.core.MessageQueue;
 import com.ivmiku.mikumq.dao.DatabaseInitializr;
 import com.ivmiku.mikumq.entity.ExchangeType;
-import com.ivmiku.mikumq.entity.Message;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
 import com.ivmiku.mikumq.manager.ConsumerManager;
 import com.ivmiku.mikumq.manager.ItemManager;
 import com.ivmiku.mikumq.request.*;
-import com.ivmiku.mikumq.response.Confirm;
-import com.ivmiku.mikumq.response.MessageBody;
 import com.ivmiku.mikumq.tracing.ApiController;
 import com.ivmiku.mikumq.utils.ConfigUtil;
 import com.ivmiku.mikumq.utils.PasswordUtil;
@@ -25,12 +22,13 @@ import org.smartboot.socket.transport.AioSession;
 import org.smartboot.socket.transport.WriteBuffer;
 
 import java.io.IOException;
-import java.nio.channels.AsynchronousChannelGroup;
-import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
 
+/**
+ * Broker服务器
+ * @author Aurora
+ */
 @Slf4j
 public class Server {
     public static ConcurrentHashMap<String, AioSession> sessionMap = new ConcurrentHashMap<>();
@@ -94,6 +92,9 @@ public class Server {
             outputStream.writeInt(data.length);
             outputStream.write(data);
             outputStream.flush();
+            if (response.getType()==1 && "登陆失败！请检查相关配置".equals(Arrays.toString(response.getPayload()))) {
+                session.close();
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -125,16 +126,13 @@ public class Server {
                 Exchange exchange = itemManager.getExchange(addMessage.getExchangeName());
                 if (itemManager.getBinding(exchange.getName()).containsKey(addMessage.getMessage().getRoutingKey())) {
                     itemManager.sendMessage(addMessage.getMessage().getRoutingKey(), addMessage.getMessage());
-                    consumerManager.addQueue(addMessage.getMessage().getRoutingKey());
                 } else {
                     return Response.error("试图写入的队列不存在！");
                 }
-
             } else if (type == ExchangeType.FANOUT) {
                 ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(addMessage.getExchangeName());
                 for (Binding binding : bindingMap.values()) {
                     itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
-                    consumerManager.addQueue(binding.getQueueName());
                 }
             }
            return Response.success();
@@ -174,6 +172,16 @@ public class Server {
             queue.setAutoAck(declareQueue.isAutoAck());
             itemManager.insertQueue(queue);
             return Response.success();
+        } else if (request.getType() == 8) {
+            MessageQuery query = ObjectUtil.deserialize(request.getPayload());
+            String consumerTag = query.getTag();
+            if (itemManager.getUnreadMessage(consumerTag) != null) {
+                if (!itemManager.getUnreadMessage(consumerTag).isEmpty()) {
+                    consumerManager.addQueue(consumerTag);
+                    return Response.success();
+                }
+            }
+            return Response.success();
         }
         return null;
     }
@@ -190,10 +198,10 @@ public class Server {
         params = ConfigUtil.getServerConfig();
         DatabaseInitializr.createFile();
         consumerManager = new ConsumerManager(this, ConfigUtil.getConsumerConfig());
-        String DbType = params.get("database");
-        if ("embedded".equals(DbType)) {
+        String dbType = params.get("database");
+        if ("embedded".equals(dbType)) {
             DatabaseInitializr.initDatabase();
-        } else if ("mysql".equals(DbType)) {
+        } else if ("mysql".equals(dbType)) {
             DatabaseInitializr.initMysql();
         }
         itemManager.init();

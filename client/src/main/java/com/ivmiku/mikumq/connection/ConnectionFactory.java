@@ -1,7 +1,6 @@
 package com.ivmiku.mikumq.connection;
 
 import cn.hutool.core.util.ObjectUtil;
-import com.ivmiku.mikumq.entity.Message;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
 import com.ivmiku.mikumq.exception.ConnectionException;
@@ -18,7 +17,6 @@ import org.smartboot.socket.transport.WriteBuffer;
 
 import java.io.IOException;
 import java.nio.channels.AsynchronousChannelGroup;
-import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,11 +31,16 @@ public class ConnectionFactory {
     @Setter
     private com.ivmiku.mikumq.consumer.MessageProcessor messageProcessor;
 
-    public AioQuickClient getConnection() throws IOException {
+    public AioQuickClient getConnection()  {
         MessageProcessor<Response> processor = (aioSession, response) -> readResponse(response, aioSession);
         AioQuickClient client = new AioQuickClient(host, port, new ResponseProtocol(), processor);
         ExecutorService executors = Executors.newFixedThreadPool(10);
-        AsynchronousChannelGroup group = AsynchronousChannelGroup.withThreadPool(executors);
+        AsynchronousChannelGroup group;
+        try {
+            group = AsynchronousChannelGroup.withThreadPool(executors);
+        } catch (IOException e) {
+            throw new ConnectionException("创建线程池失败，请检查内存剩余");
+        }
         try {
             client.start(group);
         } catch (IOException e) {

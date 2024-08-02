@@ -58,7 +58,7 @@ public class BindingDao {
             rs = st.executeQuery();
             while (rs.next()) {
                 Binding binding = new Binding();
-                binding.setBindingKey(rs.getString("key"));
+                binding.setBindingKey(rs.getString("bkey"));
                 binding.setExchangeName(rs.getString("exchange"));
                 binding.setQueueName(rs.getString("queue"));
                 list.add(binding);
