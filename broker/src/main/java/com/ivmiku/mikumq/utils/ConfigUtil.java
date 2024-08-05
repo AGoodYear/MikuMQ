@@ -57,4 +57,20 @@ public class ConfigUtil {
         map.put("database.password", (String) properties.get("server.database.password"));
         return map;
     }
+
+    public static HashMap<String, String> getClusterConfig() {
+        HashMap<String, String> map = new HashMap<>(4);
+        map.put("ip", (String) properties.get("server.host"));
+        map.put("port", (String) properties.get("server.port"));
+        map.put("clusterName", (String) properties.get("cluster.name"));
+        map.put("address", (String) properties.get("nacos.address"));
+        return map;
+    }
+
+    public static HashMap<String, String> getAuthConfig() {
+        HashMap<String, String> map = new HashMap<>(4);
+        map.put("key", (String) properties.get("tracing.auth.key"));
+        map.put("expireTime", (String) properties.get("tracing.auth.expireTime"));
+        return map;
+    }
 }
