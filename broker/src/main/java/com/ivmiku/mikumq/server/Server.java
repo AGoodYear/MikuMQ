@@ -1,19 +1,19 @@
 package com.ivmiku.mikumq.server;
 
 import cn.hutool.core.util.ObjectUtil;
-import com.ivmiku.mikumq.core.Binding;
-import com.ivmiku.mikumq.core.Exchange;
-import com.ivmiku.mikumq.core.MessageQueue;
+import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.DatabaseInitializr;
 import com.ivmiku.mikumq.entity.ExchangeType;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
+import com.ivmiku.mikumq.manager.ClusterManager;
 import com.ivmiku.mikumq.manager.ConsumerManager;
 import com.ivmiku.mikumq.manager.ItemManager;
 import com.ivmiku.mikumq.request.*;
 import com.ivmiku.mikumq.tracing.ApiController;
 import com.ivmiku.mikumq.utils.ConfigUtil;
 import com.ivmiku.mikumq.utils.PasswordUtil;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.smartboot.socket.MessageProcessor;
 import org.smartboot.socket.StateMachineEnum;
@@ -34,6 +34,8 @@ public class Server {
     public static ConcurrentHashMap<String, AioSession> sessionMap = new ConcurrentHashMap<>();
 
     public static ItemManager itemManager = new ItemManager();
+    @Getter
+    private static ClusterManager clusterManager = null;
 
     public static ConsumerManager consumerManager;
 
@@ -59,6 +61,9 @@ public class Server {
                     }
                 }
                 sendResponse(aioSession, response(request));
+                if (clusterManager != null && request.getType() != 1) {
+                    clusterManager.sendToInstances(request);
+                }
             }
 
             @Override
@@ -147,14 +152,14 @@ public class Server {
         } else if (request.getType() == 5) {
             Acknowledgement ack = ObjectUtil.deserialize(request.getPayload());
             if (ack.isSuccess()) {
-                itemManager.ackMessage(ack.getMessageId(), ack.getQueueName());
+                itemManager.ackMessage(ack.getMessageId(), ack.getQueueName(), ack.getConsumerTag());
                 System.out.println("AckOk");
             } else {
                 if (itemManager.getMessage(ack.getMessageId()).getRetryTime() < Integer.parseInt(params.get("retryTime"))) {
                     itemManager.getMessage(ack.getMessageId()).setRetryTime(itemManager.getMessage(ack.getMessageId()).getRetryTime()+1);
                     return Response.getResponse(2, itemManager.getMessage(ack.getMessageId()));
                 } else {
-                    itemManager.enterDeadQueue(ack.getMessageId(), ack.getQueueName());
+                    itemManager.enterDeadQueue(ack.getMessageId(), ack.getQueueName(), ack.getConsumerTag());
                 }
 
             }
@@ -182,6 +187,12 @@ public class Server {
                 }
             }
             return Response.success();
+        } else if (request.getType() == 9) {
+            DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
+            itemManager.deleteMessage(deleteMessage.getMessageId());
+        } else if (request.getType() == 10) {
+            WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
+
         }
         return null;
     }
@@ -210,9 +221,18 @@ public class Server {
             apiController.start();
         }
         loginRequired = Boolean.parseBoolean(params.get("login.enable"));
+        if (!"standalone".equals(params.get("cluster.mode"))) {
+            clusterManager = new ClusterManager();
+            clusterManager.init(ConfigUtil.getClusterConfig());
+            clusterManager.start();
+        }
     }
 
     public List<String> getConnections() {
         return Collections.list(sessionMap.keys());
+    }
+
+    public boolean isCluster() {
+        return !"standalone".equals(params.get("cluster.mode"));
     }
 }

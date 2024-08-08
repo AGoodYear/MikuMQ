@@ -50,7 +50,7 @@ public class ConsumerManager {
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
                             } else {
-                                server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
+                                server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName(), consumerTag);
                             }
                         });
 
