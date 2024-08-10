@@ -36,7 +36,9 @@ public class Response implements Serializable {
     public static Response getResponse(int type, Object payload) {
         Response response = new Response();
         response.setType(type);
-        response.setPayload(ObjectUtil.serialize(payload));
+        if (payload != null) {
+            response.setPayload(ObjectUtil.serialize(payload));
+        }
         return response;
     }
 }

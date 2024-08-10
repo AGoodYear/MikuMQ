@@ -27,6 +27,8 @@ public class ConsumerManager {
     private final ExecutorService processThread;
     @Setter
     private HashMap<String, String> params;
+    private final BlockingQueue<String> listenQueue = new LinkedBlockingQueue<>();
+    private final ExecutorService listenThread;
 
     public ConsumerManager(Server server, HashMap<String, String> consumerConfig) {
         this.server = server;
@@ -50,7 +52,7 @@ public class ConsumerManager {
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
                             } else {
-                                server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName(), consumerTag);
+                                server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
                             }
                         });
 
@@ -60,6 +62,39 @@ public class ConsumerManager {
                 }
             });
         }
+        listenThread = Executors.newFixedThreadPool(5);
+        listenThread.execute(() -> {
+            while (true) {
+                try {
+                    String consumerTag = listenQueue.take();
+                    if (server.getItemManager().ifHaveMessage(consumerTag)) {
+                        try {
+                            listenQueue.put(consumerTag);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    } else {
+                        listenThread.execute(() -> {
+                            MessageRecorder recorder = server.getItemManager().getUnreadMessage(consumerTag).removeFirst();
+                            Message message = server.getItemManager().getMessage(recorder.getMessageId());
+                            boolean requireAck = !server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
+                            try {
+                                sendToConsumer(message, consumerTag, recorder.getQueueName(), requireAck);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                            if (!requireAck) {
+                                server.getItemManager().deleteMessage(message.getId());
+                            } else {
+                                server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
+                            }
+                        });
+                    }
+                } catch (InterruptedException e) {
+                    throw new RuntimeException();
+                }
+            }
+        });
     }
 
     public void sendToConsumer(Message message, String tag, String queueName, boolean requireAck) throws IOException {
@@ -73,10 +108,22 @@ public class ConsumerManager {
     }
 
     public void addQueue(String consumerTag){
-        try {
-            waitingQueue.put(consumerTag);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        if (!waitingQueue.contains(consumerTag)) {
+            try {
+                waitingQueue.put(consumerTag);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    public void addListen(String consumerTag) {
+        if (!listenQueue.contains(consumerTag)) {
+            try {
+                listenQueue.put(consumerTag);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

@@ -6,11 +6,11 @@ import com.ivmiku.mikumq.producer.Producer;
 
 import java.nio.charset.StandardCharsets;
 
-public class PullMessage {
+public class ClusterTest {
     public static void main(String[] args) {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("127.0.0.1");
-        factory.setPort(8888);
+        factory.setPort(8889);
         factory.setMessageProcessor(new MessageProcessor() {
             @Override
             public void process(Message message) {
@@ -26,16 +26,22 @@ public class PullMessage {
         producer.declareQueue("pulltest", true, true);
         Message message = Message.initMessage("pulltest", "hello world".getBytes(StandardCharsets.UTF_8));
         producer.declareBinding("pulltest", "test", "12313123s");
-        producer.sendMessage("test", message);
         Consumer consumer = new Consumer();
         consumer.setTag("consumer");
-        factory.setConsumer(consumer);
+        factory.setPort(8887);
         consumer.setConnection(factory.getConnection());
         consumer.setUsername("guest");
         consumer.setPassword("guest");
         consumer.startSession();
         consumer.subscribe("pulltest");
-        producer.sendMessage("test", message);
+        producer.sendMessage("test", Message.initMessage("pulltest", "ouneideshou".getBytes(StandardCharsets.UTF_8)));
+        consumer.queryOne();
+        consumer.queryOne();
+        consumer.queryOne();
+        consumer.queryOne();
+        consumer.queryOne();
+        consumer.queryOne();
+        consumer.queryOne();
         consumer.queryOne();
         consumer.queryOne();
     }

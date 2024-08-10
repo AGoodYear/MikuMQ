@@ -19,5 +19,6 @@ public class Acknowledgement implements Serializable {
     private static final long serialVersionUID = 1L;
     private String messageId;
     private String queueName;
+    private String consumerTag;
     private boolean success;
 }

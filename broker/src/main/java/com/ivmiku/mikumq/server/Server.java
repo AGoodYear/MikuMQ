@@ -3,6 +3,7 @@ package com.ivmiku.mikumq.server;
 import cn.hutool.core.util.ObjectUtil;
 import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.DatabaseInitializr;
+import com.ivmiku.mikumq.dao.QueueDao;
 import com.ivmiku.mikumq.entity.ExchangeType;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
@@ -60,7 +61,11 @@ public class Server {
                         sessionMap.put(register.getTag(), aioSession);
                     }
                 }
-                sendResponse(aioSession, response(request));
+                Response response = response(request);
+                if (response != null) {
+                    sendResponse(aioSession, response);
+                }
+
                 if (clusterManager != null && request.getType() != 1) {
                     clusterManager.sendToInstances(request);
                 }
@@ -109,7 +114,7 @@ public class Server {
         if (request.getType() == 1) {
             Register register = ObjectUtil.deserialize(request.getPayload());
             if (sessionMap.containsKey(register.getTag())) {
-                return Response.success();
+
             } else {
                 return Response.error("登陆失败！请检查相关配置");
             }
@@ -121,8 +126,8 @@ public class Server {
             List<String> listener = itemManager.getQueue(subscribe.getQueueName()).getListener();
             if (!listener.contains(subscribe.getTag())) {
                 listener.add(subscribe.getTag());
+                QueueDao.insertListener(subscribe.getQueueName(), subscribe.getTag());
             }
-            return Response.success();
         } else if (request.getType() == 3) {
             AddMessage addMessage = ObjectUtil.deserialize(request.getPayload());
             itemManager.insertMessage(addMessage.getMessage());
@@ -140,7 +145,6 @@ public class Server {
                     itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
                 }
             }
-           return Response.success();
         } else if (request.getType() == 4) {
             DeclareExchange declareExchange = ObjectUtil.deserialize(request.getPayload());
             Exchange exchange = new Exchange();
@@ -148,7 +152,6 @@ public class Server {
             exchange.setType(declareExchange.getType());
             exchange.setDurable(declareExchange.isDurable());
             itemManager.insertExchange(exchange);
-            return Response.success();
         } else if (request.getType() == 5) {
             Acknowledgement ack = ObjectUtil.deserialize(request.getPayload());
             if (ack.isSuccess()) {
@@ -168,7 +171,6 @@ public class Server {
             DeclareBinding declareBinding = ObjectUtil.deserialize(request.getPayload());
             Binding binding = new Binding(declareBinding.getExchangeName(), declareBinding.getQueueName(), declareBinding.getBindingKey());
             itemManager.insertBinding(binding);
-            return Response.success();
         } else if (request.getType() == 7) {
             DeclareQueue declareQueue = ObjectUtil.deserialize(request.getPayload());
             MessageQueue queue = new MessageQueue();
@@ -176,23 +178,37 @@ public class Server {
             queue.setDurable(declareQueue.isDurable());
             queue.setAutoAck(declareQueue.isAutoAck());
             itemManager.insertQueue(queue);
-            return Response.success();
         } else if (request.getType() == 8) {
             MessageQuery query = ObjectUtil.deserialize(request.getPayload());
             String consumerTag = query.getTag();
             if (itemManager.getUnreadMessage(consumerTag) != null) {
                 if (!itemManager.getUnreadMessage(consumerTag).isEmpty()) {
                     consumerManager.addQueue(consumerTag);
-                    return Response.success();
                 }
             }
-            return Response.success();
+            if (itemManager.getUnreadMessage(consumerTag) == null || itemManager.getUnreadMessage(consumerTag).isEmpty()) {
+                consumerManager.addListen(consumerTag);
+                return Response.getResponse(3, null);
+            }
         } else if (request.getType() == 9) {
             DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
             itemManager.deleteMessage(deleteMessage.getMessageId());
         } else if (request.getType() == 10) {
             WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
-
+            itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
+        } else if (request.getType() == 11) {
+            DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
+            itemManager.deleteMessage(deleteMessage.getMessageId());
+            String queueName = deleteMessage.getQueueName();
+            String messageId = deleteMessage.getMessageId();
+            if (itemManager.ifInQueue(queueName, messageId)) {
+                itemManager.removeFromQueue(queueName, messageId);
+            } else if (itemManager.ifWaitingAck(queueName, messageId)) {
+                itemManager.removeFromAck(queueName, messageId);
+            } else if (itemManager.ifDead(queueName, messageId)) {
+                itemManager.removeFromDead(queueName, messageId);
+            }
+            itemManager.removeFromConsumer(deleteMessage.getConsumerTag(), deleteMessage.getMessageId());
         }
         return null;
     }

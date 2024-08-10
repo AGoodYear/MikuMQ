@@ -8,6 +8,7 @@ import com.ivmiku.mikumq.request.Acknowledgement;
 import com.ivmiku.mikumq.request.MessageQuery;
 import com.ivmiku.mikumq.request.Register;
 import com.ivmiku.mikumq.request.Subscribe;
+import lombok.Getter;
 import lombok.Setter;
 import org.smartboot.socket.transport.AioQuickClient;
 import org.smartboot.socket.transport.AioSession;
@@ -16,12 +17,19 @@ import org.smartboot.socket.transport.WriteBuffer;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Timer;
-import java.util.concurrent.*;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * 消费者客户端
+ * @author Aurora
+ */
 public class Consumer {
     private AioQuickClient client;
     @Setter
+    @Getter
     private String tag;
     private AioSession aliveSession;
     @Setter
@@ -34,6 +42,9 @@ public class Consumer {
     private Long queryDelay = 500L;
     private List<Message> messageList = new LinkedList<>();
     private ScheduledFuture<?> runnableFuture;
+    @Setter
+    @Getter
+    private boolean onHold;
 
     public void setConnection(AioQuickClient client) {
         this.client = client;
@@ -97,13 +108,15 @@ public class Consumer {
 
     public void queryMessage() {
         ScheduledExecutorService service = new ScheduledThreadPoolExecutor(1);
-        runnableFuture = service.schedule(() -> {
+        runnableFuture = service.scheduleWithFixedDelay(() -> {
                 if (messageList.size()<=maxMsgSize) {
-                    MessageQuery query = new MessageQuery();
-                    query.setTag(tag);
-                    sendRequest(Request.setRequest(8, query));
+                    if (!isOnHold()) {
+                        MessageQuery query = new MessageQuery();
+                        query.setTag(tag);
+                        sendRequest(Request.setRequest(8, query));
+                    }
                 }
-        }, queryDelay, TimeUnit.MILLISECONDS);
+        }, 0L, queryDelay, TimeUnit.MILLISECONDS);
     }
 
     public void stopQuery() {

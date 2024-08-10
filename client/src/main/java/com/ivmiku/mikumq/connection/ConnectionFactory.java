@@ -1,6 +1,7 @@
 package com.ivmiku.mikumq.connection;
 
 import cn.hutool.core.util.ObjectUtil;
+import com.ivmiku.mikumq.consumer.Consumer;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
 import com.ivmiku.mikumq.exception.ConnectionException;
@@ -30,6 +31,8 @@ public class ConnectionFactory {
     private int port;
     @Setter
     private com.ivmiku.mikumq.consumer.MessageProcessor messageProcessor;
+    @Setter
+    private Consumer consumer = null;
 
     public AioQuickClient getConnection()  {
         MessageProcessor<Response> processor = (aioSession, response) -> readResponse(response, aioSession);
@@ -58,12 +61,15 @@ public class ConnectionFactory {
                 throw new ErrorResponseException(msg);
             }
         } else if (response.getType() == 2) {
+            if (consumer.isOnHold()) {
+                consumer.setOnHold(false);
+            }
             MessageBody messageBody = ObjectUtil.deserialize(response.getPayload());
             try {
                 messageProcessor.process(messageBody.getMessage());
                 if (messageBody.isRequireAck()) {
                     WriteBuffer writeBuffer = session.writeBuffer();
-                    Acknowledgement acknowledgement = new Acknowledgement(messageBody.getMessage().getId(), messageBody.getQueueName(), true);
+                    Acknowledgement acknowledgement = new Acknowledgement(messageBody.getMessage().getId(), messageBody.getQueueName(), consumer.getTag(), true);
                     byte[] data = ObjectUtil.serialize(Request.setRequest(5, acknowledgement));
                     writeBuffer.writeInt(data.length);
                     writeBuffer.write(data);
@@ -73,7 +79,7 @@ public class ConnectionFactory {
                 e.printStackTrace();
                 if (messageBody.isRequireAck()) {
                     WriteBuffer writeBuffer = session.writeBuffer();
-                    Acknowledgement acknowledgement = new Acknowledgement(messageBody.getMessage().getId(), messageBody.getQueueName(), false);
+                    Acknowledgement acknowledgement = new Acknowledgement(messageBody.getMessage().getId(), messageBody.getQueueName(), consumer.getTag(), false);
                     byte[] data = ObjectUtil.serialize(Request.setRequest(5, acknowledgement));
                     try {
                         writeBuffer.writeInt(data.length);
@@ -84,6 +90,8 @@ public class ConnectionFactory {
                     writeBuffer.flush();
                 }
             }
+        } else if (response.getType() == 3) {
+            consumer.setOnHold(true);
         }
     }
 }
