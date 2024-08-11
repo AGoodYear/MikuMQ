@@ -1,6 +1,7 @@
 package com.ivmiku.mikumq.server;
 
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.ReUtil;
 import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.DatabaseInitializr;
 import com.ivmiku.mikumq.dao.QueueDao;
@@ -14,7 +15,6 @@ import com.ivmiku.mikumq.request.*;
 import com.ivmiku.mikumq.tracing.ApiController;
 import com.ivmiku.mikumq.utils.ConfigUtil;
 import com.ivmiku.mikumq.utils.PasswordUtil;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.smartboot.socket.MessageProcessor;
 import org.smartboot.socket.StateMachineEnum;
@@ -35,7 +35,6 @@ public class Server {
     public static ConcurrentHashMap<String, AioSession> sessionMap = new ConcurrentHashMap<>();
 
     public static ItemManager itemManager = new ItemManager();
-    @Getter
     private static ClusterManager clusterManager = null;
 
     public static ConsumerManager consumerManager;
@@ -56,6 +55,8 @@ public class Server {
                     boolean logged = false;
                     if (loginRequired) {
                         logged = PasswordUtil.login(register.getUsername(), register.getPassword());
+                    } else {
+                        logged = true;
                     }
                     if (logged) {
                         sessionMap.put(register.getTag(), aioSession);
@@ -65,8 +66,8 @@ public class Server {
                 if (response != null) {
                     sendResponse(aioSession, response);
                 }
-
-                if (clusterManager != null && request.getType() != 1) {
+                List<Integer> sendingList = Arrays.asList(1, 5, 8, 9, 10, 11);
+                if (clusterManager != null && !sendingList.contains(request.getType())) {
                     clusterManager.sendToInstances(request);
                 }
             }
@@ -144,6 +145,14 @@ public class Server {
                 for (Binding binding : bindingMap.values()) {
                     itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
                 }
+            } else if (type == ExchangeType.TOPIC) {
+                ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(addMessage.getExchangeName());
+                String routingKey = addMessage.getMessage().getRoutingKey();
+                for (Binding binding : bindingMap.values()) {
+                    if (ReUtil.isMatch(binding.getBindingKey(), routingKey)) {
+                        itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
+                    }
+                }
             }
         } else if (request.getType() == 4) {
             DeclareExchange declareExchange = ObjectUtil.deserialize(request.getPayload());
@@ -193,12 +202,6 @@ public class Server {
         } else if (request.getType() == 9) {
             DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
             itemManager.deleteMessage(deleteMessage.getMessageId());
-        } else if (request.getType() == 10) {
-            WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
-            itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
-        } else if (request.getType() == 11) {
-            DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
-            itemManager.deleteMessage(deleteMessage.getMessageId());
             String queueName = deleteMessage.getQueueName();
             String messageId = deleteMessage.getMessageId();
             if (itemManager.ifInQueue(queueName, messageId)) {
@@ -209,6 +212,9 @@ public class Server {
                 itemManager.removeFromDead(queueName, messageId);
             }
             itemManager.removeFromConsumer(deleteMessage.getConsumerTag(), deleteMessage.getMessageId());
+        } else if (request.getType() == 10) {
+            WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
+            itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
         }
         return null;
     }
@@ -250,5 +256,9 @@ public class Server {
 
     public boolean isCluster() {
         return !"standalone".equals(params.get("cluster.mode"));
+    }
+
+    public ClusterManager getClusterManager() {
+        return clusterManager;
     }
 }
