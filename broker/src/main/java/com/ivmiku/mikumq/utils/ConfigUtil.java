@@ -34,6 +34,8 @@ public class ConfigUtil {
         map.put("tracing.enable", (String) properties.get("tracing.enable"));
         map.put("login.enable", (String) properties.get("server.login.enable"));
         map.put("database", (String) properties.get("server.database"));
+        map.put("heart.rate", (String) properties.get("server.heart.rate"));
+        map.put("heart.timeout", (String) properties.get("server.heart.timeout"));
         return map;
     }
 

@@ -16,8 +16,9 @@ import com.ivmiku.mikumq.tracing.ApiController;
 import com.ivmiku.mikumq.utils.ConfigUtil;
 import com.ivmiku.mikumq.utils.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.smartboot.socket.MessageProcessor;
 import org.smartboot.socket.StateMachineEnum;
+import org.smartboot.socket.extension.plugins.HeartPlugin;
+import org.smartboot.socket.extension.processor.AbstractMessageProcessor;
 import org.smartboot.socket.transport.AioQuickServer;
 import org.smartboot.socket.transport.AioSession;
 import org.smartboot.socket.transport.WriteBuffer;
@@ -25,6 +26,7 @@ import org.smartboot.socket.transport.WriteBuffer;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Broker服务器
@@ -47,12 +49,12 @@ public class Server {
 
     public void start() throws IOException {
         init();
-        MessageProcessor<Request> processor = new MessageProcessor<>() {
+        AbstractMessageProcessor<Request> processor = new AbstractMessageProcessor<>() {
             @Override
-            public void process(AioSession aioSession, Request request) {
+            public void process0(AioSession aioSession, Request request) {
                 if (request.getType() == 1) {
                     Register register = ObjectUtil.deserialize(request.getPayload());
-                    boolean logged = false;
+                    boolean logged;
                     if (loginRequired) {
                         logged = PasswordUtil.login(register.getUsername(), register.getPassword());
                     } else {
@@ -66,20 +68,20 @@ public class Server {
                 if (response != null) {
                     sendResponse(aioSession, response);
                 }
-                List<Integer> sendingList = Arrays.asList(1, 5, 8, 9, 10, 11);
+                List<Integer> sendingList = Arrays.asList(1, 8, 9, 10, 11);
                 if (clusterManager != null && !sendingList.contains(request.getType())) {
                     clusterManager.sendToInstances(request);
                 }
             }
 
             @Override
-            public void stateEvent(AioSession session, StateMachineEnum stateMachineEnum, Throwable throwable) {
+            public void stateEvent0(AioSession session, StateMachineEnum stateMachineEnum, Throwable throwable) {
                 if (stateMachineEnum == StateMachineEnum.DECODE_EXCEPTION || stateMachineEnum == StateMachineEnum.PROCESS_EXCEPTION) {
                     System.out.println("解码时出现了异常");
                     throwable.printStackTrace();
                 }
                 if (stateMachineEnum == StateMachineEnum.SESSION_CLOSED) {
-                    for(Iterator<Map.Entry<String, AioSession>> it = sessionMap.entrySet().iterator(); it.hasNext();) {
+                    for (Iterator<Map.Entry<String, AioSession>> it = sessionMap.entrySet().iterator(); it.hasNext(); ) {
                         Map.Entry<String, AioSession> item = it.next();
                         if (item.getValue() == session) {
                             it.remove();
@@ -89,6 +91,22 @@ public class Server {
                 }
             }
         };
+        processor.addPlugin(new HeartPlugin<>(Integer.parseInt(params.get("heart.rate")), Integer.parseInt(params.get("heart.timeout")), TimeUnit.SECONDS) {
+            @Override
+            public void sendHeartRequest(AioSession aioSession) throws IOException {
+                WriteBuffer buffer = aioSession.writeBuffer();
+                byte[] data = ObjectUtil.serialize(Request.setRequest(12, ""));
+                buffer.writeInt(data.length);
+                buffer.write(data);
+                buffer.flush();
+            }
+
+            @Override
+            public boolean isHeartMessage(AioSession aioSession, Request request) {
+                return request.getType() == 12;
+            }
+
+        });
         AioQuickServer server = new AioQuickServer(params.get("host") ,Integer.parseInt(params.get("port")), new RequestProtocol(), processor);
         server.setLowMemory(true);
         server.setThreadNum(Integer.parseInt(params.get("threadNum")));

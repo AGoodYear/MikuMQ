@@ -13,7 +13,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class Request implements Serializable {
     @Serial
-    private static final long serialVersionUID = 4333316296651054416L;
+    private static final long serialVersionUID = 2L;
     private int type;
     private byte[] payload;
 
