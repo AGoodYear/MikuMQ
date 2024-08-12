@@ -1,4 +1,4 @@
-package com.ivmiku.mikumq.server;
+package com.ivmiku.mikumq.core.server;
 
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.ReUtil;
@@ -8,9 +8,9 @@ import com.ivmiku.mikumq.dao.QueueDao;
 import com.ivmiku.mikumq.entity.ExchangeType;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
-import com.ivmiku.mikumq.manager.ClusterManager;
-import com.ivmiku.mikumq.manager.ConsumerManager;
-import com.ivmiku.mikumq.manager.ItemManager;
+import com.ivmiku.mikumq.core.manager.ClusterManager;
+import com.ivmiku.mikumq.core.manager.ConsumerManager;
+import com.ivmiku.mikumq.core.manager.ItemManager;
 import com.ivmiku.mikumq.request.*;
 import com.ivmiku.mikumq.tracing.ApiController;
 import com.ivmiku.mikumq.utils.ConfigUtil;
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class Server {
     public static ConcurrentHashMap<String, AioSession> sessionMap = new ConcurrentHashMap<>();
-
+    public static ConcurrentHashMap<String, AioSession> clusterSessionMap = new ConcurrentHashMap<>();
     public static ItemManager itemManager = new ItemManager();
     private static ClusterManager clusterManager = null;
 
@@ -60,16 +60,18 @@ public class Server {
                     } else {
                         logged = true;
                     }
-                    if (logged) {
+                    if (logged && !(register.getTag().indexOf(0) =='#')) {
                         sessionMap.put(register.getTag(), aioSession);
+                    } else {
+                        clusterSessionMap.put(register.getTag(), aioSession);
                     }
                 }
                 Response response = response(request);
-                if (response != null) {
+                if (response != null && !clusterSessionMap.contains(aioSession)) {
                     sendResponse(aioSession, response);
                 }
                 List<Integer> sendingList = Arrays.asList(1, 8, 9, 10, 11);
-                if (clusterManager != null && !sendingList.contains(request.getType())) {
+                if (clusterManager != null && !sendingList.contains(request.getType()) && !clusterSessionMap.contains(aioSession)) {
                     clusterManager.sendToInstances(request);
                 }
             }
@@ -95,7 +97,7 @@ public class Server {
             @Override
             public void sendHeartRequest(AioSession aioSession) throws IOException {
                 WriteBuffer buffer = aioSession.writeBuffer();
-                byte[] data = ObjectUtil.serialize(Request.setRequest(12, ""));
+                byte[] data = ObjectUtil.serialize(Request.setRequest(12, null));
                 buffer.writeInt(data.length);
                 buffer.write(data);
                 buffer.flush();

@@ -1,4 +1,4 @@
-package com.ivmiku.mikumq.server;
+package com.ivmiku.mikumq.core.server;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.ivmiku.mikumq.entity.Request;

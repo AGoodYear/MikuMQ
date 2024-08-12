@@ -1,11 +1,14 @@
-package com.ivmiku.mikumq.manager;
+package com.ivmiku.mikumq.core.manager;
 
 import cn.hutool.core.util.ObjectUtil;
+import com.ivmiku.mikumq.core.DeleteMessage;
 import com.ivmiku.mikumq.core.MessageRecorder;
+import com.ivmiku.mikumq.core.WaitingAck;
 import com.ivmiku.mikumq.entity.Message;
+import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
 import com.ivmiku.mikumq.response.MessageBody;
-import com.ivmiku.mikumq.server.Server;
+import com.ivmiku.mikumq.core.server.Server;
 import lombok.Setter;
 import org.smartboot.socket.transport.AioSession;
 import org.smartboot.socket.transport.WriteBuffer;
@@ -51,8 +54,10 @@ public class ConsumerManager {
                             }
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
+                                notifyDelete(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             } else {
                                 server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
+                                notifyAck(recorder.getQueueName(), recorder.getMessageId());
                             }
                         });
 
@@ -85,8 +90,10 @@ public class ConsumerManager {
                             }
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
+                                notifyDelete(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             } else {
                                 server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
+                                notifyAck(recorder.getQueueName(), recorder.getMessageId());
                             }
                         });
                     }
@@ -124,6 +131,25 @@ public class ConsumerManager {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    public void notifyAck(String queueName, String messageId) {
+        if (server.isCluster()) {
+            WaitingAck waitingAck = new WaitingAck();
+            waitingAck.setMessageId(messageId);
+            waitingAck.setQueueName(queueName);
+            server.getClusterManager().sendToInstances(Request.setRequest(10, waitingAck));
+        }
+    }
+
+    public void notifyDelete(String queueName, String messageId, String consumerTag) {
+        if (server.isCluster()) {
+            DeleteMessage deleteMessage = new DeleteMessage();
+            deleteMessage.setConsumerTag(consumerTag);
+            deleteMessage.setMessageId(messageId);
+            deleteMessage.setQueueName(queueName);
+            server.getClusterManager().sendToInstances(Request.setRequest(9, deleteMessage));
         }
     }
 }

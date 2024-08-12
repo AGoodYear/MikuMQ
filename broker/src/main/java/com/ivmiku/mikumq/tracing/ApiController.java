@@ -7,7 +7,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.ivmiku.mikumq.core.Binding;
 import com.ivmiku.mikumq.core.Exchange;
 import com.ivmiku.mikumq.core.MessageQueue;
-import com.ivmiku.mikumq.server.Server;
+import com.ivmiku.mikumq.core.server.Server;
 import com.ivmiku.mikumq.tracing.entity.ExchangeInfo;
 import com.ivmiku.mikumq.tracing.entity.QueueInfo;
 import com.ivmiku.mikumq.utils.AuthUtil;

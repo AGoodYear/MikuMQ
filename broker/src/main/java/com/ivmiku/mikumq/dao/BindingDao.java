@@ -70,4 +70,21 @@ public class BindingDao {
         }
         return list;
     }
+
+    public static boolean ifExist(String bKey) {
+        Connection connection = null;
+        PreparedStatement st = null;
+        ResultSet rs = null;
+        try {
+            connection = JDBCUtils.getConnection();
+            st = connection.prepareStatement("select bkey, exchange, queue from binding where bkey = ?");
+            st.setString(1, bKey);
+            rs = st.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            JDBCUtils.release(connection, st, rs);
+        }
+    }
 }
