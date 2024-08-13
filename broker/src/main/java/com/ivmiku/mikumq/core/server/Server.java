@@ -60,7 +60,7 @@ public class Server {
                     } else {
                         logged = true;
                     }
-                    if (logged && !(register.getTag().indexOf(0) =='#')) {
+                    if (logged && !register.isCluster()) {
                         sessionMap.put(register.getTag(), aioSession);
                     } else {
                         clusterSessionMap.put(register.getTag(), aioSession);
@@ -97,7 +97,7 @@ public class Server {
             @Override
             public void sendHeartRequest(AioSession aioSession) throws IOException {
                 WriteBuffer buffer = aioSession.writeBuffer();
-                byte[] data = ObjectUtil.serialize(Request.setRequest(12, null));
+                byte[] data = ObjectUtil.serialize(Response.getResponse(4, null));
                 buffer.writeInt(data.length);
                 buffer.write(data);
                 buffer.flush();

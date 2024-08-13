@@ -47,10 +47,20 @@ public class ClusterManager {
                         }
                     }
                     for (Instance instance : instances) {
-                        String key = "#"+instance.getIp()+instance.getPort();
+                        String key = instance.getIp()+instance.getPort();
                         if (!CLIENT_MAP.containsKey(key)) {
-                            AioQuickClient client = new AioQuickClient(instance.getIp(), instance.getPort(), new RequestProtocol(), (aioSession, request1) -> {
-
+                            AioQuickClient client = new AioQuickClient(instance.getIp(), instance.getPort(), new ResponseProtocol(), (aioSession, response) -> {
+                                if (response.getType() == 4) {
+                                    WriteBuffer buffer = aioSession.writeBuffer();
+                                    byte[] data = ObjectUtil.serialize(Request.setRequest(12, null));
+                                    try {
+                                        buffer.writeInt(data.length);
+                                        buffer.write(data);
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                    buffer.flush();
+                                }
                             });
                             try {
                                 client.start();
@@ -62,7 +72,8 @@ public class ClusterManager {
                             CLIENT_MAP.put(key, client);
                             WriteBuffer buffer = session.writeBuffer();
                             Register register = new Register();
-                            register.setTag("#"+instance.getIp()+instance.getPort());
+                            register.setTag(instance.getIp()+instance.getPort());
+                            register.setCluster(true);
                             byte[] data = ObjectUtil.serialize(Request.setRequest(1, register));
                             try {
                                 buffer.writeInt(data.length);
@@ -84,7 +95,7 @@ public class ClusterManager {
 
     public void sendToInstances(Request request) {
         for (Instance instance : instances) {
-            String key = "#"+instance.getIp()+instance.getPort();
+            String key = instance.getIp()+instance.getPort();
             AioSession session = CLIENT_MAP.get(key).getSession();
             WriteBuffer writeBuffer = session.writeBuffer();
             byte[] data = ObjectUtil.serialize(request);

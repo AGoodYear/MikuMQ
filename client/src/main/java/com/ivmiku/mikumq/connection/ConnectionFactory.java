@@ -92,6 +92,16 @@ public class ConnectionFactory {
             }
         } else if (response.getType() == 3) {
             consumer.setOnHold(true);
+        } else if (response.getType() == 4) {
+            WriteBuffer buffer = session.writeBuffer();
+            byte[] data = ObjectUtil.serialize(Request.setRequest(12, null));
+            try {
+                buffer.writeInt(data.length);
+                buffer.write(data);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            buffer.flush();
         }
     }
 }
