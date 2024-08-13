@@ -12,4 +12,5 @@ public class Register implements Serializable {
     private String tag;
     private String username;
     private String password;
+    private boolean isCluster = false;
 }

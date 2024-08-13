@@ -82,4 +82,44 @@ public class QueueDao {
         }
         return list;
     }
+
+    public static boolean ifExist(String queueName) {
+        Connection connection = null;
+        PreparedStatement st = null;
+        ResultSet rs = null;
+        try {
+            connection = JDBCUtils.getConnection();
+            st = connection.prepareStatement("select name from queue where name = ?");
+            st.setString(1, queueName);
+            rs = st.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            JDBCUtils.release(connection, st, rs);
+        }
+    }
+
+    public static void insertListener(String queueName, String tag) {
+        Connection connection = null;
+        PreparedStatement st = null;
+        ResultSet rs = null;
+        try {
+            connection = JDBCUtils.getConnection();
+            st = connection.prepareStatement("select tag from listener where queue = ? and tag = ?");
+            st.setString(1, queueName);
+            st.setString(2, tag);
+            rs = st.executeQuery();
+            if (rs.next()) {
+                st = connection.prepareStatement("insert into listener values (?, ?)");
+                st.setString(1, queueName);
+                st.setString(2, tag);
+                st.executeUpdate();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            JDBCUtils.release(connection, st, rs);
+        }
+    }
 }

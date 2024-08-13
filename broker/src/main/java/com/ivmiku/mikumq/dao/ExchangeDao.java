@@ -62,7 +62,7 @@ public class ExchangeDao {
                 Exchange exchange = new Exchange();
                 exchange.setName(rs.getString("name"));
                 exchange.setType(ExchangeType.valueOf(rs.getString("type")));
-                exchange.setDurable(rs.getInt("durable")!=0);
+                exchange.setDurable(rs.getInt("durable") != 0);
                 list.add(exchange);
             }
         } catch (SQLException e) {
@@ -71,5 +71,22 @@ public class ExchangeDao {
             JDBCUtils.release(connection, st, rs);
         }
         return list;
+    }
+
+    public static boolean ifExist(String exchangeName) {
+        Connection connection = null;
+        PreparedStatement st = null;
+        ResultSet rs = null;
+        try {
+            connection = JDBCUtils.getConnection();
+            st = connection.prepareStatement("select name, type, durable from exchange where name = ?");
+            st.setString(1, exchangeName);
+            rs = st.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            JDBCUtils.release(connection, st, rs);
+        }
     }
 }

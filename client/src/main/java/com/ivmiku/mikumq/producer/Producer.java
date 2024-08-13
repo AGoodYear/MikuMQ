@@ -6,6 +6,7 @@ import com.ivmiku.mikumq.entity.Message;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.exception.ConnectionException;
 import com.ivmiku.mikumq.request.*;
+import lombok.Getter;
 import lombok.Setter;
 import org.smartboot.socket.transport.AioQuickClient;
 import org.smartboot.socket.transport.AioSession;
@@ -21,6 +22,7 @@ public class Producer {
     private AioQuickClient client;
     @Setter
     private String tag;
+    @Getter
     private AioSession aliveSession;
     @Setter
     private String username;

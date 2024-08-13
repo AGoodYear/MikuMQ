@@ -1,6 +1,6 @@
 package com.ivmiku.mikumq;
 
-import com.ivmiku.mikumq.server.Server;
+import com.ivmiku.mikumq.core.server.Server;
 
 import java.io.IOException;
 

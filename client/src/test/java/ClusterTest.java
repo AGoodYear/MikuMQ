@@ -10,7 +10,7 @@ public class ClusterTest {
     public static void main(String[] args) {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("127.0.0.1");
-        factory.setPort(8889);
+        factory.setPort(8887);
         factory.setMessageProcessor(new MessageProcessor() {
             @Override
             public void process(Message message) {
@@ -24,25 +24,17 @@ public class ClusterTest {
         producer.setPassword("guest");
         producer.startSession();
         producer.declareQueue("pulltest", true, true);
-        Message message = Message.initMessage("pulltest", "hello world".getBytes(StandardCharsets.UTF_8));
         producer.declareBinding("pulltest", "test", "12313123s");
         Consumer consumer = new Consumer();
         consumer.setTag("consumer");
-        factory.setPort(8887);
+        factory.setPort(8888);
+        factory.setConsumer(consumer);
         consumer.setConnection(factory.getConnection());
         consumer.setUsername("guest");
         consumer.setPassword("guest");
         consumer.startSession();
         consumer.subscribe("pulltest");
-        producer.sendMessage("test", Message.initMessage("pulltest", "ouneideshou".getBytes(StandardCharsets.UTF_8)));
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
-        consumer.queryOne();
+        producer.sendMessage("test", Message.initMessage("pulltest", "ouneideshou".getBytes()));
+        consumer.queryMessage();
     }
 }

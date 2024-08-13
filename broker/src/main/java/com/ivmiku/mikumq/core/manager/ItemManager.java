@@ -1,4 +1,4 @@
-package com.ivmiku.mikumq.manager;
+package com.ivmiku.mikumq.core.manager;
 
 import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.BindingDao;
@@ -109,15 +109,17 @@ public class ItemManager {
         List<String> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
         MessageQueue queue = queueMap.get(queueName);
         list.add(message.getId());
-        Integer robin = BalancerUtil.getRobin(queueName);
-        if (robin >= queue.getListener().size()) {
-            robin %= queue.getListener().size();
-            BalancerUtil.resetQueue(queueName);
+        if (!queue.getListener().isEmpty()) {
+            Integer robin = BalancerUtil.getRobin(queueName);
+            if (robin >= queue.getListener().size()) {
+                robin %= queue.getListener().size();
+                BalancerUtil.resetQueue(queueName);
+            }
+            String consumerTag = queue.getListener().get(robin);
+            List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
+            MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
+            consumerMsg.add(recorder);
         }
-        String consumerTag = queue.getListener().get(robin);
-        List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
-        MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
-        consumerMsg.add(recorder);
     }
 
     public List<String> getMessageList(String queueName) {
@@ -140,7 +142,7 @@ public class ItemManager {
         }
     }
 
-    public void waitingForAck(String id, String queueName, String consumerTag) {
+    public void waitingForAck(String id, String queueName) {
         List<String> waitingList = waitQueueMap.get(queueName);
         if (waitingList == null) {
             waitingList = new ArrayList<>();
@@ -188,5 +190,44 @@ public class ItemManager {
     public Message declareDeadQueue(String consumerTag, String queueName) {
         String messageId = deadQueueMap.get(queueName).removeFirst();
         return messageMap.get(messageId);
+    }
+
+    public boolean ifInQueue(String queueName, String messageId) {
+        return messageList.get(queueName).contains(messageId);
+    }
+
+    public boolean ifWaitingAck(String queueName, String messageId) {
+        return waitQueueMap.get(queueName).contains(messageId);
+    }
+
+    public boolean ifDead(String queueName, String messageId) {
+        return deadQueueMap.get(queueName).contains(messageId);
+    }
+
+    public void removeFromQueue(String queueName, String messageId) {
+        messageList.get(queueName).remove(messageId);
+    }
+
+    public void removeFromAck(String queueName, String messageId) {
+        waitQueueMap.get(queueName).remove(messageId);
+    }
+
+    public void removeFromDead(String queueName, String messageId) {
+        deadQueueMap.get(queueName).remove(messageId);
+    }
+
+    public void removeFromConsumer(String consumerTag, String messageId) {
+        Iterator<MessageRecorder> it = consumerMsgMap.get(consumerTag).iterator();
+        while (it.hasNext()) {
+            MessageRecorder recorder = it.next();
+            if (recorder.getMessageId().equals(messageId)) {
+                it.remove();
+                break;
+            }
+        }
+    }
+
+    public boolean ifHaveMessage(String consumerTag) {
+        return consumerMsgMap.get(consumerTag) == null || consumerMsgMap.get(consumerTag).isEmpty();
     }
 }
