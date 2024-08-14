@@ -36,6 +36,7 @@ public class ConfigUtil {
         map.put("database", (String) properties.get("server.database"));
         map.put("heart.rate", (String) properties.get("server.heart.rate"));
         map.put("heart.timeout", (String) properties.get("server.heart.timeout"));
+        map.put("cluster.mode", (String) properties.get("server.mode"));
         return map;
     }
 
