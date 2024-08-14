@@ -132,109 +132,123 @@ public class Server {
     }
 
     public Response response(Request request) {
-        if (request.getType() == 1) {
-            Register register = ObjectUtil.deserialize(request.getPayload());
-            if (sessionMap.containsKey(register.getTag())) {
+        switch (request.getType()) {
+            case 1 -> {
+                Register register = ObjectUtil.deserialize(request.getPayload());
+                if (sessionMap.containsKey(register.getTag())) {
 
-            } else {
-                return Response.error("登陆失败！请检查相关配置");
-            }
-        } else if (request.getType() == 2) {
-            Subscribe subscribe = ObjectUtil.deserialize(request.getPayload());
-            if (itemManager.getQueue(subscribe.getQueueName()) == null) {
-                return Response.error("要订阅的队列不存在！");
-            }
-            List<String> listener = itemManager.getQueue(subscribe.getQueueName()).getListener();
-            if (!listener.contains(subscribe.getTag())) {
-                listener.add(subscribe.getTag());
-                QueueDao.insertListener(subscribe.getQueueName(), subscribe.getTag());
-            }
-        } else if (request.getType() == 3) {
-            AddMessage addMessage = ObjectUtil.deserialize(request.getPayload());
-            itemManager.insertMessage(addMessage.getMessage());
-            ExchangeType type = itemManager.getExchange(addMessage.getExchangeName()).getType();
-            if (type == ExchangeType.DIRECT) {
-                Exchange exchange = itemManager.getExchange(addMessage.getExchangeName());
-                if (itemManager.getBinding(exchange.getName()).containsKey(addMessage.getMessage().getRoutingKey())) {
-                    itemManager.sendMessage(addMessage.getMessage().getRoutingKey(), addMessage.getMessage());
                 } else {
-                    return Response.error("试图写入的队列不存在！");
+                    return Response.error("登陆失败！请检查相关配置");
                 }
-            } else if (type == ExchangeType.FANOUT) {
-                ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(addMessage.getExchangeName());
-                for (Binding binding : bindingMap.values()) {
-                    itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
+            }
+            case 2 -> {
+                Subscribe subscribe = ObjectUtil.deserialize(request.getPayload());
+                if (itemManager.getQueue(subscribe.getQueueName()) == null) {
+                    return Response.error("要订阅的队列不存在！");
                 }
-            } else if (type == ExchangeType.TOPIC) {
-                ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(addMessage.getExchangeName());
-                String routingKey = addMessage.getMessage().getRoutingKey();
-                for (Binding binding : bindingMap.values()) {
-                    if (ReUtil.isMatch(binding.getBindingKey(), routingKey)) {
+                List<String> listener = itemManager.getQueue(subscribe.getQueueName()).getListener();
+                if (!listener.contains(subscribe.getTag())) {
+                    listener.add(subscribe.getTag());
+                    QueueDao.insertListener(subscribe.getQueueName(), subscribe.getTag());
+                }
+            }
+            case 3 -> {
+                AddMessage addMessage = ObjectUtil.deserialize(request.getPayload());
+                itemManager.insertMessage(addMessage.getMessage());
+                ExchangeType type = itemManager.getExchange(addMessage.getExchangeName()).getType();
+                if (type == ExchangeType.DIRECT) {
+                    Exchange exchange = itemManager.getExchange(addMessage.getExchangeName());
+                    if (itemManager.getBinding(exchange.getName()).containsKey(addMessage.getMessage().getRoutingKey())) {
+                        itemManager.sendMessage(addMessage.getMessage().getRoutingKey(), addMessage.getMessage());
+                    } else {
+                        return Response.error("试图写入的队列不存在！");
+                    }
+                } else if (type == ExchangeType.FANOUT) {
+                    ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(addMessage.getExchangeName());
+                    for (Binding binding : bindingMap.values()) {
                         itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
+                    }
+                } else if (type == ExchangeType.TOPIC) {
+                    ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(addMessage.getExchangeName());
+                    String routingKey = addMessage.getMessage().getRoutingKey();
+                    for (Binding binding : bindingMap.values()) {
+                        if (ReUtil.isMatch(binding.getBindingKey(), routingKey)) {
+                            itemManager.sendMessage(binding.getQueueName(), addMessage.getMessage());
+                        }
                     }
                 }
             }
-        } else if (request.getType() == 4) {
-            DeclareExchange declareExchange = ObjectUtil.deserialize(request.getPayload());
-            Exchange exchange = new Exchange();
-            exchange.setName(declareExchange.getName());
-            exchange.setType(declareExchange.getType());
-            exchange.setDurable(declareExchange.isDurable());
-            itemManager.insertExchange(exchange);
-        } else if (request.getType() == 5) {
-            Acknowledgement ack = ObjectUtil.deserialize(request.getPayload());
-            if (ack.isSuccess()) {
-                itemManager.ackMessage(ack.getMessageId(), ack.getQueueName(), ack.getConsumerTag());
-                System.out.println("AckOk");
-            } else {
-                if (itemManager.getMessage(ack.getMessageId()).getRetryTime() < Integer.parseInt(params.get("retryTime"))) {
-                    itemManager.getMessage(ack.getMessageId()).setRetryTime(itemManager.getMessage(ack.getMessageId()).getRetryTime()+1);
-                    return Response.getResponse(2, itemManager.getMessage(ack.getMessageId()));
+            case 4 -> {
+                DeclareExchange declareExchange = ObjectUtil.deserialize(request.getPayload());
+                Exchange exchange = new Exchange();
+                exchange.setName(declareExchange.getName());
+                exchange.setType(declareExchange.getType());
+                exchange.setDurable(declareExchange.isDurable());
+                itemManager.insertExchange(exchange);
+            }
+            case 5 -> {
+                Acknowledgement ack = ObjectUtil.deserialize(request.getPayload());
+                if (ack.isSuccess()) {
+                    itemManager.ackMessage(ack.getMessageId(), ack.getQueueName(), ack.getConsumerTag());
+                    System.out.println("AckOk");
                 } else {
-                    itemManager.enterDeadQueue(ack.getMessageId(), ack.getQueueName(), ack.getConsumerTag());
-                }
+                    if (itemManager.getMessage(ack.getMessageId()).getRetryTime() < Integer.parseInt(params.get("retryTime"))) {
+                        itemManager.getMessage(ack.getMessageId()).setRetryTime(itemManager.getMessage(ack.getMessageId()).getRetryTime() + 1);
+                        return Response.getResponse(2, itemManager.getMessage(ack.getMessageId()));
+                    } else {
+                        itemManager.enterDeadQueue(ack.getMessageId(), ack.getQueueName(), ack.getConsumerTag());
+                    }
 
+                }
+                return Response.success();
             }
-            return Response.success();
-        } else if (request.getType() == 6) {
-            DeclareBinding declareBinding = ObjectUtil.deserialize(request.getPayload());
-            Binding binding = new Binding(declareBinding.getExchangeName(), declareBinding.getQueueName(), declareBinding.getBindingKey());
-            itemManager.insertBinding(binding);
-        } else if (request.getType() == 7) {
-            DeclareQueue declareQueue = ObjectUtil.deserialize(request.getPayload());
-            MessageQueue queue = new MessageQueue();
-            queue.setName(declareQueue.getName());
-            queue.setDurable(declareQueue.isDurable());
-            queue.setAutoAck(declareQueue.isAutoAck());
-            itemManager.insertQueue(queue);
-        } else if (request.getType() == 8) {
-            MessageQuery query = ObjectUtil.deserialize(request.getPayload());
-            String consumerTag = query.getTag();
-            if (itemManager.getUnreadMessage(consumerTag) != null) {
-                if (!itemManager.getUnreadMessage(consumerTag).isEmpty()) {
-                    consumerManager.addQueue(consumerTag);
+            case 6 -> {
+                DeclareBinding declareBinding = ObjectUtil.deserialize(request.getPayload());
+                Binding binding = new Binding(declareBinding.getExchangeName(), declareBinding.getQueueName(), declareBinding.getBindingKey());
+                itemManager.insertBinding(binding);
+            }
+            case 7 -> {
+                DeclareQueue declareQueue = ObjectUtil.deserialize(request.getPayload());
+                MessageQueue queue = new MessageQueue();
+                queue.setName(declareQueue.getName());
+                queue.setDurable(declareQueue.isDurable());
+                queue.setAutoAck(declareQueue.isAutoAck());
+                itemManager.insertQueue(queue);
+            }
+            case 8 -> {
+                MessageQuery query = ObjectUtil.deserialize(request.getPayload());
+                String consumerTag = query.getTag();
+                if (itemManager.getUnreadMessage(consumerTag) != null) {
+                    if (!itemManager.getUnreadMessage(consumerTag).isEmpty()) {
+                        consumerManager.addQueue(consumerTag);
+                    }
+                }
+                if (itemManager.getUnreadMessage(consumerTag) == null || itemManager.getUnreadMessage(consumerTag).isEmpty()) {
+                    consumerManager.addListen(consumerTag);
+                    return Response.getResponse(3, null);
                 }
             }
-            if (itemManager.getUnreadMessage(consumerTag) == null || itemManager.getUnreadMessage(consumerTag).isEmpty()) {
-                consumerManager.addListen(consumerTag);
-                return Response.getResponse(3, null);
+            case 9 -> {
+                DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
+                itemManager.deleteMessage(deleteMessage.getMessageId());
+                String queueName = deleteMessage.getQueueName();
+                String messageId = deleteMessage.getMessageId();
+                if (itemManager.ifInQueue(queueName, messageId)) {
+                    itemManager.removeFromQueue(queueName, messageId);
+                } else if (itemManager.ifWaitingAck(queueName, messageId)) {
+                    itemManager.removeFromAck(queueName, messageId);
+                } else if (itemManager.ifDead(queueName, messageId)) {
+                    itemManager.removeFromDead(queueName, messageId);
+                }
+                itemManager.removeFromConsumer(deleteMessage.getConsumerTag(), deleteMessage.getMessageId());
             }
-        } else if (request.getType() == 9) {
-            DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
-            itemManager.deleteMessage(deleteMessage.getMessageId());
-            String queueName = deleteMessage.getQueueName();
-            String messageId = deleteMessage.getMessageId();
-            if (itemManager.ifInQueue(queueName, messageId)) {
-                itemManager.removeFromQueue(queueName, messageId);
-            } else if (itemManager.ifWaitingAck(queueName, messageId)) {
-                itemManager.removeFromAck(queueName, messageId);
-            } else if (itemManager.ifDead(queueName, messageId)) {
-                itemManager.removeFromDead(queueName, messageId);
+            case 10 -> {
+                WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
+                itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
             }
-            itemManager.removeFromConsumer(deleteMessage.getConsumerTag(), deleteMessage.getMessageId());
-        } else if (request.getType() == 10) {
-            WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
-            itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
+            default -> {
+                return Response.getResponse(1, "未经定义的请求");
+            }
         }
         return null;
     }
