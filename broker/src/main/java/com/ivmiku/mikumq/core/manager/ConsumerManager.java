@@ -72,7 +72,7 @@ public class ConsumerManager {
             while (true) {
                 try {
                     String consumerTag = listenQueue.take();
-                    if (server.getItemManager().ifHaveMessage(consumerTag)) {
+                    if (server.getItemManager().ifHaveMessage(consumerTag) && server.getSession(consumerTag) != null) {
                         try {
                             listenQueue.put(consumerTag);
                         } catch (InterruptedException e) {

@@ -49,16 +49,25 @@ public class DatabaseInitializr {
                     "  \"created_at\" text,\n" +
                     "  PRIMARY KEY (\"id\")\n" +
                     ");");
+            PreparedStatement statement6 = connection.prepareStatement("CREATE TABLE IF NOT EXISTS \"message\" (\n" +
+                    "  \"id\" text(255) NOT NULL,\n" +
+                    "  \"start\" text(20),\n" +
+                    "  \"queue\" text(255),\n" +
+                    "  PRIMARY KEY (\"id\"),\n" +
+                    "  CONSTRAINT \"message_ibfk_1\" FOREIGN KEY (\"queue\") REFERENCES \"queue\" (\"name\") ON DELETE CASCADE ON UPDATE CASCADE\n" +
+                    ");");
             statement1.execute();
             statement2.execute();
             statement3.execute();
             statement4.execute();
             statement5.execute();
+            statement6.close();
             statement1.close();
             statement2.close();
             statement3.close();
             statement4.close();
             statement5.close();
+            statement6.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         } finally {
@@ -119,16 +128,26 @@ public class DatabaseInitializr {
                     "  PRIMARY KEY (`id`),\n" +
                     "  UNIQUE KEY `username` (`username`)\n" +
                     ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+            PreparedStatement statement6 = connection.prepareStatement("CREATE TABLE IF NOT EXISTS `message` (\n" +
+                    "  `id` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,\n" +
+                    "  `start` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,\n" +
+                    "  `queue` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,\n" +
+                    "  PRIMARY KEY (`id`),\n" +
+                    "  KEY `queue` (`queue`),\n" +
+                    "  CONSTRAINT `message_ibfk_1` FOREIGN KEY (`queue`) REFERENCES `queue` (`name`) ON DELETE CASCADE ON UPDATE CASCADE\n" +
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
             statement1.execute();
             statement2.execute();
             statement3.execute();
             statement4.execute();
             statement5.execute();
+            statement6.execute();
             statement1.close();
             statement2.close();
             statement3.close();
             statement4.close();
             statement5.close();
+            statement6.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         } finally {

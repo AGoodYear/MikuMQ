@@ -15,4 +15,5 @@ public class MessageQueue {
     private List<String> listener = new ArrayList<>();
     private boolean autoAck;
     private boolean durable;
+    private boolean needInspect;
 }

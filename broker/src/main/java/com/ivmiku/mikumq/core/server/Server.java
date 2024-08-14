@@ -4,16 +4,21 @@ import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.ReUtil;
 import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.DatabaseInitializr;
+import com.ivmiku.mikumq.dao.MessageDao;
 import com.ivmiku.mikumq.dao.QueueDao;
 import com.ivmiku.mikumq.entity.ExchangeType;
+import com.ivmiku.mikumq.entity.Message;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.entity.Response;
 import com.ivmiku.mikumq.core.manager.ClusterManager;
 import com.ivmiku.mikumq.core.manager.ConsumerManager;
 import com.ivmiku.mikumq.core.manager.ItemManager;
 import com.ivmiku.mikumq.request.*;
+import com.ivmiku.mikumq.response.Confirm;
+import com.ivmiku.mikumq.response.MessageBody;
 import com.ivmiku.mikumq.tracing.ApiController;
 import com.ivmiku.mikumq.utils.ConfigUtil;
+import com.ivmiku.mikumq.utils.DurableUtil;
 import com.ivmiku.mikumq.utils.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.smartboot.socket.StateMachineEnum;
@@ -177,6 +182,11 @@ public class Server {
                         }
                     }
                 }
+                if (addMessage.getMessage().isDurable()) {
+                    DurableMessage message = DurableUtil.writeMessage(addMessage.getMessage());
+                    message.setQueue(addMessage.getExchangeName());
+                    MessageDao.insertMessage(message);
+                }
             }
             case 4 -> {
                 DeclareExchange declareExchange = ObjectUtil.deserialize(request.getPayload());
@@ -246,8 +256,17 @@ public class Server {
                 WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
                 itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
             }
+            case 11 -> {
+                DeclareDeadQueue declareDeadQueue = ObjectUtil.deserialize(request.getPayload());
+                Message message = itemManager.declareDeadQueue(declareDeadQueue.getQueueName());
+                MessageBody body = new MessageBody();
+                body.setMessage(message);
+                body.setQueueName(declareDeadQueue.getQueueName());
+                body.setRequireAck(false);
+                return Response.getResponse(2, body);
+            }
             default -> {
-                return Response.getResponse(1, "未经定义的请求");
+                return Response.getResponse(1, new Confirm("未经定义的请求"));
             }
         }
         return null;
@@ -281,6 +300,31 @@ public class Server {
             clusterManager = new ClusterManager();
             clusterManager.init(ConfigUtil.getClusterConfig());
             clusterManager.start();
+        }
+        List<Message> durableList = DurableUtil.readAllMessage();
+        for (Message message : durableList) {
+            DurableMessage durableMessage = MessageDao.selectMessageById(message.getId());
+            itemManager.insertMessage(message);
+            ExchangeType type = itemManager.getExchange(durableMessage.getQueue()).getType();
+            if (type == ExchangeType.DIRECT) {
+                Exchange exchange = itemManager.getExchange(durableMessage.getQueue());
+                if (itemManager.getBinding(exchange.getName()).containsKey(message.getRoutingKey())) {
+                    itemManager.sendMessage(message.getRoutingKey(), message);
+                }
+            } else if (type == ExchangeType.FANOUT) {
+                ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(durableMessage.getQueue());
+                for (Binding binding : bindingMap.values()) {
+                    itemManager.sendMessage(binding.getQueueName(), message);
+                }
+            } else if (type == ExchangeType.TOPIC) {
+                ConcurrentHashMap<String, Binding> bindingMap = itemManager.getBinding(durableMessage.getQueue());
+                String routingKey = message.getRoutingKey();
+                for (Binding binding : bindingMap.values()) {
+                    if (ReUtil.isMatch(binding.getBindingKey(), routingKey)) {
+                        itemManager.sendMessage(binding.getQueueName(), message);
+                    }
+                }
+            }
         }
     }
 

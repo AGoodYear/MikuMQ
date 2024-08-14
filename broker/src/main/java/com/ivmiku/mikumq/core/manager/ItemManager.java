@@ -3,9 +3,11 @@ package com.ivmiku.mikumq.core.manager;
 import com.ivmiku.mikumq.core.*;
 import com.ivmiku.mikumq.dao.BindingDao;
 import com.ivmiku.mikumq.dao.ExchangeDao;
+import com.ivmiku.mikumq.dao.MessageDao;
 import com.ivmiku.mikumq.dao.QueueDao;
 import com.ivmiku.mikumq.entity.Message;
 import com.ivmiku.mikumq.utils.BalancerUtil;
+import com.ivmiku.mikumq.utils.DurableUtil;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -102,7 +104,14 @@ public class ItemManager {
     }
 
     public void deleteMessage(String id) {
-        messageMap.remove(id);
+        Message message = messageMap.remove(id);
+        if (message.isDurable()) {
+            DurableMessage durableMessage = MessageDao.selectMessageById(message.getId());
+            if (durableMessage != null) {
+                DurableUtil.invalidateMessage(Integer.parseInt(durableMessage.getStart()));
+                MessageDao.deleteMessage(message.getId());
+            }
+        }
     }
 
     public void sendMessage(String queueName, Message message) {
@@ -119,6 +128,31 @@ public class ItemManager {
             List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
             MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
             consumerMsg.add(recorder);
+        } else {
+            queue.setNeedInspect(true);
+        }
+        if (queue.isNeedInspect() && !queue.getListener().isEmpty()) {
+            List<String> deliveredMessage = new ArrayList<>();
+            for (String tag : queue.getListener()) {
+                List<MessageRecorder> consumerMsg = consumerMsgMap.get(tag);
+                for (MessageRecorder recorder : consumerMsg) {
+                    deliveredMessage.add(recorder.getMessageId());
+                }
+            }
+            for (String messageId : list) {
+                if (!deliveredMessage.contains(messageId)) {
+                    Integer robin = BalancerUtil.getRobin(queueName);
+                    if (robin >= queue.getListener().size()) {
+                        robin %= queue.getListener().size();
+                        BalancerUtil.resetQueue(queueName);
+                    }
+                    String consumerTag = queue.getListener().get(robin);
+                    List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
+                    MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
+                    consumerMsg.add(recorder);
+                }
+            }
+            queue.setNeedInspect(false);
         }
     }
 
@@ -187,7 +221,7 @@ public class ItemManager {
         return Collections.list(exchangeMap.keys());
     }
 
-    public Message declareDeadQueue(String consumerTag, String queueName) {
+    public Message declareDeadQueue(String queueName) {
         String messageId = deadQueueMap.get(queueName).removeFirst();
         return messageMap.get(messageId);
     }

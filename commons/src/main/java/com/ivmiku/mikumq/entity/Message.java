@@ -18,6 +18,7 @@ public class Message implements Serializable {
     private String id;
     private String routingKey;
     private int retryTime = 0;
+    private boolean durable;
 
     /**
      * 创建新的消息
