@@ -21,6 +21,7 @@ public class AckTest {
             String msg = new String(message.getMessage());
             System.out.println(msg);
         });
+        factory.setConsumer(consumer);
         consumer.setConnection(factory.getConnection());
         consumer.startSession();
         Message message = Message.initMessage("queue2", "hello world".getBytes(StandardCharsets.UTF_8));
