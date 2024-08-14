@@ -32,9 +32,9 @@ public class JDBCUtils {
             config.setUsername(PARAMS.get("database.username"));
             config.setPassword(PARAMS.get("database.password"));
         }
-        config.setMaximumPoolSize(60);
-        config.setMinimumIdle(5);
-        config.setMaxLifetime(6000);
+        config.setMaximumPoolSize(Integer.parseInt(PARAMS.get("maxsize")));
+        config.setMinimumIdle(Integer.parseInt(PARAMS.get("minidle")));
+        config.setMaxLifetime(Long.parseLong(PARAMS.get("maxlife")));
         DATA_SOURCE = new HikariDataSource(config);
     }
 

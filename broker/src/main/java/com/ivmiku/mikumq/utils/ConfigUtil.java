@@ -57,6 +57,9 @@ public class ConfigUtil {
         map.put("database.url", (String) properties.get("server.database.url"));
         map.put("database.username", (String) properties.get("server.database.username"));
         map.put("database.password", (String) properties.get("server.database.password"));
+        map.put("maxsize", (String) properties.get("server.database.maxpoolsize"));
+        map.put("minidle", (String) properties.get("server.database.minidle"));
+        map.put("maxlife", (String) properties.get("server.database.maxlifetime"));
         return map;
     }
 
