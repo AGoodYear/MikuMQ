@@ -16,6 +16,11 @@ public class MikuTemplate {
     private Map<String, String> params;
     private Producer producer;
 
+    public void send(String exchangeName, String routingKey, byte[] payload) {
+        Message message = Message.initMessage(routingKey, payload);
+        producer.sendMessage(exchangeName, message);
+    }
+
     public void convertAndSend(String exchangeName, String routingKey, Object payload) {
         Message message = Message.initMessage(routingKey, ObjectUtil.serialize(payload));
         producer.sendMessage(exchangeName, message);
