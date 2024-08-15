@@ -114,6 +114,10 @@ public class ItemManager {
         }
     }
 
+    public void deleteFromQueue(String queueName, String id) {
+        messageList.get(queueName).remove(id);
+    }
+
     public void sendMessage(String queueName, Message message) {
         List<String> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
         MessageQueue queue = queueMap.get(queueName);

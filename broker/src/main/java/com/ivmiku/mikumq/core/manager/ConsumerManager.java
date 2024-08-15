@@ -54,6 +54,7 @@ public class ConsumerManager {
                             }
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
+                                server.getItemManager().deleteFromQueue(recorder.getQueueName(), recorder.getMessageId());
                                 notifyDelete(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             } else {
                                 server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
@@ -90,6 +91,7 @@ public class ConsumerManager {
                             }
                             if (!requireAck) {
                                 server.getItemManager().deleteMessage(message.getId());
+                                server.getItemManager().deleteFromQueue(recorder.getQueueName(), recorder.getMessageId());
                                 notifyDelete(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             } else {
                                 server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
