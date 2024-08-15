@@ -79,6 +79,13 @@ public class Consumer {
         if (aliveSession != null) {
             WriteBuffer writeBuffer = aliveSession.writeBuffer();
             try {
+                writeBuffer.flush();
+            } catch (Exception e) {
+                aliveSession.close();
+                startSession();
+                writeBuffer = aliveSession.writeBuffer();
+            }
+            try {
                 byte[] data = ObjectUtil.serialize(request);
                 writeBuffer.writeInt(data.length);
                 writeBuffer.write(data);
