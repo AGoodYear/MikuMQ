@@ -66,17 +66,12 @@ public class Producer {
             try  {
                 byte[] data = ObjectUtil.serialize(request);
                 WriteBuffer writeBuffer = aliveSession.writeBuffer();
-                try {
-                    writeBuffer.flush();
-                } catch (Exception e) {
-                    aliveSession.close();
-                    startSession();
-                    writeBuffer = aliveSession.writeBuffer();
-                }
                 writeBuffer.writeInt(data.length);
                 writeBuffer.write(data);
                 writeBuffer.flush();
             } catch (IOException e) {
+                aliveSession.close();
+                startSession();
                 throw new RuntimeException(e);
             }
         } else {

@@ -46,7 +46,7 @@ public class ConsumerManager {
                         processThread.execute(() -> {
                             MessageRecorder recorder = server.getItemManager().getUnreadMessage(consumerTag).removeFirst();
                             Message message = server.getItemManager().getMessage(recorder.getMessageId());
-                            boolean requireAck = !server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
+                            boolean requireAck = server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
                             try {
                                 sendToConsumer(message, consumerTag, recorder.getQueueName(), requireAck);
                             } catch (IOException e) {
@@ -83,7 +83,7 @@ public class ConsumerManager {
                         listenThread.execute(() -> {
                             MessageRecorder recorder = server.getItemManager().getUnreadMessage(consumerTag).removeFirst();
                             Message message = server.getItemManager().getMessage(recorder.getMessageId());
-                            boolean requireAck = !server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
+                            boolean requireAck = server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
                             try {
                                 sendToConsumer(message, consumerTag, recorder.getQueueName(), requireAck);
                             } catch (IOException e) {
