@@ -37,4 +37,8 @@ public class AuthUtil {
     public static boolean validate(String token) {
         return JWT.of(token).setKey(key.getBytes(StandardCharsets.UTF_8)).validate(300);
     }
+
+    public static String getUsername(String token) {
+        return (String) JWT.of(token).setKey(key.getBytes(StandardCharsets.UTF_8)).getPayload("username");
+    }
 }

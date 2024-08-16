@@ -7,9 +7,12 @@ import com.alibaba.fastjson2.JSONObject;
 import com.ivmiku.mikumq.core.Binding;
 import com.ivmiku.mikumq.core.Exchange;
 import com.ivmiku.mikumq.core.MessageQueue;
+import com.ivmiku.mikumq.core.User;
 import com.ivmiku.mikumq.core.server.Server;
+import com.ivmiku.mikumq.dao.UserDao;
 import com.ivmiku.mikumq.tracing.entity.ExchangeInfo;
 import com.ivmiku.mikumq.tracing.entity.QueueInfo;
+import com.ivmiku.mikumq.tracing.entity.UserInput;
 import com.ivmiku.mikumq.utils.AuthUtil;
 import com.ivmiku.mikumq.utils.PasswordUtil;
 
@@ -64,6 +67,15 @@ public class ApiController {
                         httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
                     }
                 }))
+                .addAction("/queue/delete", ((httpServerRequest, httpServerResponse) -> {
+                    if (AuthUtil.validate(httpServerRequest.getHeader("token"))) {
+                        String queueName = httpServerRequest.getParam("name");
+                        server.getItemManager().deleteQueue(queueName);
+                        httpServerResponse.write(JSON.toJSONString(Result.ok()), ContentType.JSON.toString());
+                    } else {
+                        httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
+                    }
+                }))
                 .addAction("/exchange/list", ((httpServerRequest, httpServerResponse) -> {
                     if (AuthUtil.validate(httpServerRequest.getHeader("token"))) {
                         httpServerResponse.write(JSON.toJSONString(Result.ok(server.getItemManager().getExchangeList())));
@@ -81,6 +93,16 @@ public class ApiController {
                         info.setDurable(exchange.isDurable());
                         info.setBindingNum(server.getItemManager().getBinding(exchangeName).size());
                         httpServerResponse.write(JSON.toJSONString(Result.ok(info)), ContentType.JSON.toString());
+                    } else {
+                        httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
+                    }
+                }))
+                .addAction("/exchange/delete", ((httpServerRequest, httpServerResponse) -> {
+                    if (AuthUtil.validate(httpServerRequest.getHeader("token"))) {
+                        String exchangeName = httpServerRequest.getParam("name");
+                        server.getItemManager().deleteExchange(exchangeName);
+                        server.getItemManager().deleteBinding(exchangeName);
+                        httpServerResponse.write(JSON.toJSONString(Result.ok()), ContentType.JSON.toString());
                     } else {
                         httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
                     }
@@ -105,6 +127,32 @@ public class ApiController {
                 .addAction("/", ((httpServerRequest, httpServerResponse) -> {
                     if (AuthUtil.validate(httpServerRequest.getHeader("token"))) {
                         httpServerResponse.write("hello world");
+                    } else {
+                        httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
+                    }
+                }))
+                .addAction("/user/add", ((httpServerRequest, httpServerResponse) -> {
+                    if (AuthUtil.validate(httpServerRequest.getHeader("token"))) {
+                        UserInput input = JSON.parseObject(httpServerRequest.getBody(), UserInput.class);
+                        User user = new User();
+                        user.setUsername(input.getUsername());
+                        user.setSalt(PasswordUtil.getSalt(10));
+                        user.setPassword(PasswordUtil.encrypt(input.getPassword(), user.getSalt()));
+                        user.setRole(input.getRole());
+                        UserDao.insertUser(user);
+                        httpServerResponse.write(JSON.toJSONString(Result.ok()), ContentType.JSON.toString());
+                    } else {
+                        httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
+                    }
+                }))
+                .addAction("/user/password", ((httpServerRequest, httpServerResponse) -> {
+                    if (AuthUtil.validate(httpServerRequest.getHeader("token"))) {
+                        String username = AuthUtil.getUsername(httpServerRequest.getHeader("token"));
+                        String password = httpServerRequest.getParam("password");
+                        String salt = PasswordUtil.getSalt(10);
+                        String newPassword = PasswordUtil.encrypt(password, salt);
+                        UserDao.changePassword(username, newPassword, salt);
+                        httpServerResponse.write(JSON.toJSONString(Result.ok()), ContentType.JSON.toString());
                     } else {
                         httpServerResponse.write(JSON.toJSONString(Result.error("token无效！")), ContentType.JSON.toString());
                     }

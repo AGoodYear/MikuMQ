@@ -13,7 +13,7 @@ import java.sql.SQLException;
  * @author Aurora
  */
 public class UserDao {
-    public static void insertExchange(User user) {
+    public static void insertUser(User user) {
         Connection connection = null;
         PreparedStatement st = null;
         try {
@@ -66,6 +66,23 @@ public class UserDao {
             connection = JDBCUtils.getConnection();
             st = connection.prepareStatement("delete from user where username = ?");
             st.setString(1, username);
+            st.execute();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            JDBCUtils.release(connection, st, null);
+        }
+    }
+
+    public static void changePassword(String username, String password, String salt) {
+        Connection connection = null;
+        PreparedStatement st = null;
+        try {
+            connection = JDBCUtils.getConnection();
+            st = connection.prepareStatement("update user set salt = ? and password = ? where username = ?");
+            st.setString(1, salt);
+            st.setString(2, password);
+            st.setString(3, username);
             st.execute();
         } catch (SQLException e) {
             throw new RuntimeException(e);

@@ -95,6 +95,15 @@ public class ItemManager {
         BindingDao.deleteExchange(key);
     }
 
+    public void deleteBinding(String exchangeName) {
+        ConcurrentHashMap<String, Binding> map = bindingMap.remove(exchangeName);
+        List<String> list = Collections.list(map.keys());
+        for (String queueName : list) {
+            String key = map.get(queueName).getBindingKey();
+            BindingDao.deleteExchange(key);
+        }
+    }
+
     public void insertMessage(Message message) {
         messageMap.put(message.getId(), message);
     }
@@ -119,44 +128,46 @@ public class ItemManager {
     }
 
     public void sendMessage(String queueName, Message message) {
-        List<String> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
         MessageQueue queue = queueMap.get(queueName);
-        list.add(message.getId());
-        if (!queue.getListener().isEmpty()) {
-            Integer robin = BalancerUtil.getRobin(queueName);
-            if (robin >= queue.getListener().size()) {
-                robin %= queue.getListener().size();
-                BalancerUtil.resetQueue(queueName);
-            }
-            String consumerTag = queue.getListener().get(robin);
-            List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
-            MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
-            consumerMsg.add(recorder);
-        } else {
-            queue.setNeedInspect(true);
-        }
-        if (queue.isNeedInspect() && !queue.getListener().isEmpty()) {
-            List<String> deliveredMessage = new ArrayList<>();
-            for (String tag : queue.getListener()) {
-                List<MessageRecorder> consumerMsg = consumerMsgMap.get(tag);
-                for (MessageRecorder recorder : consumerMsg) {
-                    deliveredMessage.add(recorder.getMessageId());
+        if (queue != null) {
+            List<String> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
+            list.add(message.getId());
+            if (!queue.getListener().isEmpty()) {
+                Integer robin = BalancerUtil.getRobin(queueName);
+                if (robin >= queue.getListener().size()) {
+                    robin %= queue.getListener().size();
+                    BalancerUtil.resetQueue(queueName);
                 }
+                String consumerTag = queue.getListener().get(robin);
+                List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
+                MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
+                consumerMsg.add(recorder);
+            } else {
+                queue.setNeedInspect(true);
             }
-            for (String messageId : list) {
-                if (!deliveredMessage.contains(messageId)) {
-                    Integer robin = BalancerUtil.getRobin(queueName);
-                    if (robin >= queue.getListener().size()) {
-                        robin %= queue.getListener().size();
-                        BalancerUtil.resetQueue(queueName);
+            if (queue.isNeedInspect() && !queue.getListener().isEmpty()) {
+                List<String> deliveredMessage = new ArrayList<>();
+                for (String tag : queue.getListener()) {
+                    List<MessageRecorder> consumerMsg = consumerMsgMap.get(tag);
+                    for (MessageRecorder recorder : consumerMsg) {
+                        deliveredMessage.add(recorder.getMessageId());
                     }
-                    String consumerTag = queue.getListener().get(robin);
-                    List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
-                    MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
-                    consumerMsg.add(recorder);
                 }
+                for (String messageId : list) {
+                    if (!deliveredMessage.contains(messageId)) {
+                        Integer robin = BalancerUtil.getRobin(queueName);
+                        if (robin >= queue.getListener().size()) {
+                            robin %= queue.getListener().size();
+                            BalancerUtil.resetQueue(queueName);
+                        }
+                        String consumerTag = queue.getListener().get(robin);
+                        List<MessageRecorder> consumerMsg = consumerMsgMap.computeIfAbsent(consumerTag, k-> new LinkedList<>());
+                        MessageRecorder recorder = new MessageRecorder(message.getId(), queueName);
+                        consumerMsg.add(recorder);
+                    }
+                }
+                queue.setNeedInspect(false);
             }
-            queue.setNeedInspect(false);
         }
     }
 
