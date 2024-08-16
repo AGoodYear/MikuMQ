@@ -1,6 +1,7 @@
 package com.ivmiku.mikumq.utils;
 
 import cn.hutool.jwt.JWT;
+import cn.hutool.jwt.JWTException;
 import cn.hutool.jwt.JWTUtil;
 
 import java.io.Serial;
@@ -35,7 +36,11 @@ public class AuthUtil {
     }
 
     public static boolean validate(String token) {
-        return JWT.of(token).setKey(key.getBytes(StandardCharsets.UTF_8)).validate(300);
+        try {
+            return JWT.of(token).setKey(key.getBytes(StandardCharsets.UTF_8)).validate(300);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static String getUsername(String token) {

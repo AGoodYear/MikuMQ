@@ -1,5 +1,7 @@
 package com.ivmiku.mikumq.tracing;
 
+import cn.hutool.core.date.DateTime;
+import cn.hutool.core.lang.generator.SnowflakeGenerator;
 import cn.hutool.http.ContentType;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
@@ -139,6 +141,9 @@ public class ApiController {
                         user.setSalt(PasswordUtil.getSalt(10));
                         user.setPassword(PasswordUtil.encrypt(input.getPassword(), user.getSalt()));
                         user.setRole(input.getRole());
+                        SnowflakeGenerator generator = new SnowflakeGenerator();
+                        user.setId(String.valueOf(generator.next()));
+                        user.setCreatedAt(DateTime.now().toString());
                         UserDao.insertUser(user);
                         httpServerResponse.write(JSON.toJSONString(Result.ok()), ContentType.JSON.toString());
                     } else {

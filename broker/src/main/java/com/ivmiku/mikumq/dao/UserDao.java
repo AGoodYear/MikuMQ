@@ -18,12 +18,13 @@ public class UserDao {
         PreparedStatement st = null;
         try {
             connection = JDBCUtils.getConnection();
-            st = connection.prepareStatement("insert into user values (?, ?, ?, ?, ?)");
+            st = connection.prepareStatement("insert into user values (?, ?, ?, ?, ?, ?)");
             st.setString(1, user.getId());
             st.setString(2, user.getUsername());
             st.setString(3, user.getSalt());
             st.setString(4, user.getPassword());
             st.setString(5, user.getRole());
+            st.setString(6, user.getCreatedAt());
             st.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException(e);
