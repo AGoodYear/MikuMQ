@@ -5,6 +5,7 @@ import com.ivmiku.mikumq.consumer.Consumer;
 import com.ivmiku.mikumq.consumer.MessageProcessor;
 import com.ivmiku.mikumq.entity.Message;
 import jakarta.annotation.Resource;
+import lombok.Setter;
 import org.smartboot.socket.transport.AioQuickClient;
 
 import java.util.List;
@@ -14,6 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConsumerManager {
     public static Map<String, Consumer> consumerMap = new ConcurrentHashMap<>();
     public static Map<String, List<Message>> consumerList = new ConcurrentHashMap<>();
+    public static List<ConsumerProperties> propertiesList;
+
+    public static void setPropertiesList(List<ConsumerProperties> propertiesList) {
+        ConsumerManager.propertiesList = propertiesList;
+    }
 
     @Resource
     private MikuProperties properties;

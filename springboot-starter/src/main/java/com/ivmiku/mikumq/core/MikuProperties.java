@@ -10,4 +10,5 @@ public class MikuProperties {
     private String port;
     private String username;
     private String password;
+    private Long querytime = 500L;
 }
