@@ -28,6 +28,9 @@ import java.util.concurrent.Executors;
 @Data
 public class ConnectionFactory {
     private String host;
+    private int readBufferSize = 1024;
+    private int writeBufferSize = 1024;
+    private int writeBufferCapacity = 2;
     private int port;
     @Setter
     private com.ivmiku.mikumq.consumer.MessageProcessor messageProcessor;
@@ -37,15 +40,10 @@ public class ConnectionFactory {
     public AioQuickClient getConnection()  {
         MessageProcessor<Response> processor = (aioSession, response) -> readResponse(response, aioSession);
         AioQuickClient client = new AioQuickClient(host, port, new ResponseProtocol(), processor);
-        ExecutorService executors = Executors.newFixedThreadPool(10);
-        AsynchronousChannelGroup group;
+        client.setReadBufferSize(readBufferSize);
+        client.setWriteBuffer(writeBufferSize, writeBufferCapacity);
         try {
-            group = AsynchronousChannelGroup.withThreadPool(executors);
-        } catch (IOException e) {
-            throw new ConnectionException("创建线程池失败，请检查内存剩余");
-        }
-        try {
-            client.start(group);
+            client.start();
         } catch (IOException e) {
             throw new ConnectionException("与MikuMQ的服务器连接失败，请检查网络连接。");
         }

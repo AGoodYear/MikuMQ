@@ -9,4 +9,7 @@ public class ConsumerProperties {
     private String[] queueName;
     private MessageProcessor processor;
     private Long queryTime;
+    private int readBufferSize = 1024;
+    private int writeBufferSize = 1024;
+    private int writeBufferCapacity = 2;
 }

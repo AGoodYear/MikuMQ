@@ -11,4 +11,7 @@ public class MikuProperties {
     private String username;
     private String password;
     private Long querytime = 500L;
+    private int readBufferSize = 1024;
+    private int writeBufferSize = 1024;
+    private int writeBufferCapacity = 2;
 }
