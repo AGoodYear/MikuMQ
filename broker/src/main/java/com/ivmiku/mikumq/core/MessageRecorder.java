@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
- * 记录带发送的消息信息
+ * 记录待发送的消息信息
  * @author Aurora
  */
 @AllArgsConstructor

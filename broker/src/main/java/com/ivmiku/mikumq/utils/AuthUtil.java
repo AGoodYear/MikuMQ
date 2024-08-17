@@ -23,6 +23,11 @@ public class AuthUtil {
         expireTime = Integer.parseInt(params.get("expireTime")) * 1000L;
     }
 
+    /**
+     * 创建token
+     * @param username 用户名
+     * @return 创建的token
+     */
     public static String getToken(String username) {
         Map<String, Object> map = new HashMap<>(2) {
             @Serial
@@ -35,6 +40,11 @@ public class AuthUtil {
         return JWTUtil.createToken(map, key.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * 验证token是否有效
+     * @param token 要验证的token
+     * @return 验证结果
+     */
     public static boolean validate(String token) {
         try {
             return JWT.of(token).setKey(key.getBytes(StandardCharsets.UTF_8)).validate(300);
@@ -43,6 +53,11 @@ public class AuthUtil {
         }
     }
 
+    /**
+     * 从token中获取用户名
+     * @param token token
+     * @return token包含的用户名
+     */
     public static String getUsername(String token) {
         return (String) JWT.of(token).setKey(key.getBytes(StandardCharsets.UTF_8)).getPayload("username");
     }

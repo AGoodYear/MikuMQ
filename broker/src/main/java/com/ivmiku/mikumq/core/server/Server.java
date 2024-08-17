@@ -39,7 +39,13 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 public class Server {
+    /**
+     * 存储session会话
+     */
     public static ConcurrentHashMap<String, AioSession> sessionMap = new ConcurrentHashMap<>();
+    /**
+     * 存储来自集群其他实例的session
+     */
     public static ConcurrentHashMap<String, AioSession> clusterSessionMap = new ConcurrentHashMap<>();
     public static ItemManager itemManager = new ItemManager();
     private static ClusterManager clusterManager = null;
@@ -53,18 +59,23 @@ public class Server {
     public boolean loginRequired;
 
     public void start() throws IOException {
+        //初始化服务器
         init();
+        //定义消息处理器
         AbstractMessageProcessor<Request> processor = new AbstractMessageProcessor<>() {
             @Override
             public void process0(AioSession aioSession, Request request) {
+                //向服务器注册则将session存到内存中
                 if (request.getType() == 1) {
                     Register register = ObjectUtil.deserialize(request.getPayload());
                     boolean logged;
+                    //是否开启鉴权
                     if (loginRequired) {
                         logged = PasswordUtil.login(register.getUsername(), register.getPassword());
                     } else {
                         logged = true;
                     }
+                    //判断session是否来自集群
                     if (logged && !register.isCluster()) {
                         sessionMap.put(register.getTag(), aioSession);
                     } else {
@@ -75,6 +86,7 @@ public class Server {
                 if (response != null && !clusterSessionMap.contains(aioSession)) {
                     sendResponse(aioSession, response);
                 }
+                //如果是新增队列、消息等操作，则转发集群其他实例
                 List<Integer> sendingList = Arrays.asList(1, 8, 9, 10, 11);
                 if (clusterManager != null && !sendingList.contains(request.getType()) && !clusterSessionMap.contains(aioSession)) {
                     clusterManager.sendToInstances(request);
@@ -84,10 +96,11 @@ public class Server {
             @Override
             public void stateEvent0(AioSession session, StateMachineEnum stateMachineEnum, Throwable throwable) {
                 if (stateMachineEnum == StateMachineEnum.DECODE_EXCEPTION || stateMachineEnum == StateMachineEnum.PROCESS_EXCEPTION) {
-                    System.out.println("解码时出现了异常");
+                    log.error("解码时出现了异常");
                     throwable.printStackTrace();
                 }
                 if (stateMachineEnum == StateMachineEnum.SESSION_CLOSED) {
+                    //会话关闭，移除session
                     for (Iterator<Map.Entry<String, AioSession>> it = sessionMap.entrySet().iterator(); it.hasNext(); ) {
                         Map.Entry<String, AioSession> item = it.next();
                         if (item.getValue() == session) {
@@ -98,6 +111,7 @@ public class Server {
                 }
             }
         };
+        //添加心跳插件
         processor.addPlugin(new HeartPlugin<>(Integer.parseInt(params.get("heart.rate")), Integer.parseInt(params.get("heart.timeout")), TimeUnit.SECONDS) {
             @Override
             public void sendHeartRequest(AioSession aioSession) throws IOException {
@@ -116,11 +130,19 @@ public class Server {
         });
         AioQuickServer server = new AioQuickServer(params.get("host") ,Integer.parseInt(params.get("port")), new RequestProtocol(), processor);
         server.setLowMemory(true);
+        //设置线程数量
         server.setThreadNum(Integer.parseInt(params.get("threadNum")));
+        server.setReadBufferSize(Integer.parseInt(params.get("readBufferSize")));
+        server.setWriteBuffer(Integer.parseInt(params.get("writeBufferSize")), Integer.parseInt(params.get("writeBufferCapacity")));
         server.start();
         log.info("MikuMQ Broker Started");
     }
 
+    /**
+     * 向会话发送响应
+     * @param session 当前会话
+     * @param response 响应
+     */
     public static void sendResponse(AioSession session, Response response) {
         try {
             WriteBuffer outputStream = session.writeBuffer();
@@ -136,8 +158,14 @@ public class Server {
         }
     }
 
+    /**
+     * 根据请求获取响应
+     * @param request 客户端的请求
+     * @return 响应
+     */
     public Response response(Request request) {
         switch (request.getType()) {
+            //登录
             case 1 -> {
                 Register register = ObjectUtil.deserialize(request.getPayload());
                 if (sessionMap.containsKey(register.getTag())) {
@@ -146,6 +174,7 @@ public class Server {
                     return Response.error("登陆失败！请检查相关配置");
                 }
             }
+            //消费者订阅
             case 2 -> {
                 Subscribe subscribe = ObjectUtil.deserialize(request.getPayload());
                 if (itemManager.getQueue(subscribe.getQueueName()) == null) {
@@ -157,6 +186,7 @@ public class Server {
                     QueueDao.insertListener(subscribe.getQueueName(), subscribe.getTag());
                 }
             }
+            //生产者投递消息
             case 3 -> {
                 AddMessage addMessage = ObjectUtil.deserialize(request.getPayload());
                 itemManager.insertMessage(addMessage.getMessage());
@@ -188,6 +218,7 @@ public class Server {
                     MessageDao.insertMessage(message);
                 }
             }
+            //创建交换机
             case 4 -> {
                 DeclareExchange declareExchange = ObjectUtil.deserialize(request.getPayload());
                 Exchange exchange = new Exchange();
@@ -196,6 +227,7 @@ public class Server {
                 exchange.setDurable(declareExchange.isDurable());
                 itemManager.insertExchange(exchange);
             }
+            //Ack
             case 5 -> {
                 Acknowledgement ack = ObjectUtil.deserialize(request.getPayload());
                 if (ack.isSuccess()) {
@@ -212,11 +244,13 @@ public class Server {
                 }
                 return Response.success();
             }
+            //创建绑定
             case 6 -> {
                 DeclareBinding declareBinding = ObjectUtil.deserialize(request.getPayload());
                 Binding binding = new Binding(declareBinding.getExchangeName(), declareBinding.getQueueName(), declareBinding.getBindingKey());
                 itemManager.insertBinding(binding);
             }
+            //创建队列
             case 7 -> {
                 DeclareQueue declareQueue = ObjectUtil.deserialize(request.getPayload());
                 MessageQueue queue = new MessageQueue();
@@ -225,6 +259,7 @@ public class Server {
                 queue.setAutoAck(declareQueue.isAutoAck());
                 itemManager.insertQueue(queue);
             }
+            //问询消息
             case 8 -> {
                 MessageQuery query = ObjectUtil.deserialize(request.getPayload());
                 String consumerTag = query.getTag();
@@ -238,6 +273,7 @@ public class Server {
                     return Response.getResponse(3, null);
                 }
             }
+            //删除消息
             case 9 -> {
                 DeleteMessage deleteMessage = ObjectUtil.deserialize(request.getPayload());
                 itemManager.deleteMessage(deleteMessage.getMessageId());
@@ -252,10 +288,12 @@ public class Server {
                 }
                 itemManager.removeFromConsumer(deleteMessage.getConsumerTag(), deleteMessage.getMessageId());
             }
+            //等待ack
             case 10 -> {
                 WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
                 itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
             }
+            //消费死信队列
             case 11 -> {
                 DeclareDeadQueue declareDeadQueue = ObjectUtil.deserialize(request.getPayload());
                 Message message = itemManager.declareDeadQueue(declareDeadQueue.getQueueName());
@@ -280,6 +318,9 @@ public class Server {
         return sessionMap.get(sessionId);
     }
 
+    /**
+     * 初始化服务器，设置相关参数
+     */
     public void init() {
         params = ConfigUtil.getServerConfig();
         DatabaseInitializr.createFile();
@@ -301,6 +342,7 @@ public class Server {
             clusterManager.init(ConfigUtil.getClusterConfig());
             clusterManager.start();
         }
+        //从磁盘读取持久化的信息
         List<Message> durableList = DurableUtil.readAllMessage();
         for (Message message : durableList) {
             DurableMessage durableMessage = MessageDao.selectMessageById(message.getId());

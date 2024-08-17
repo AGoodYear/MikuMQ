@@ -7,6 +7,10 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+/**
+ * Api返回的结果封装类
+ * @author Aurora
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

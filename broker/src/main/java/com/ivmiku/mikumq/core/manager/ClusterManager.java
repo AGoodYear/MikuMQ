@@ -9,7 +9,6 @@ import com.alibaba.nacos.api.naming.listener.NamingEvent;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import com.ivmiku.mikumq.entity.Request;
 import com.ivmiku.mikumq.request.Register;
-import com.ivmiku.mikumq.core.server.RequestProtocol;
 import org.smartboot.socket.transport.AioQuickClient;
 import org.smartboot.socket.transport.AioSession;
 import org.smartboot.socket.transport.WriteBuffer;
@@ -35,6 +34,7 @@ public class ClusterManager {
     public void start() {
         String address = params.get("address");
         try {
+            //向nacos注册自身并订阅集群
             NamingService namingService = NacosFactory.createNamingService(address);
             namingService.registerInstance("MikuMQ", params.get("ip"), Integer.parseInt(params.get("port")), params.get("clusterName"));
             EventListener listener = event -> {
@@ -93,6 +93,10 @@ public class ClusterManager {
         garbageCollect();
     }
 
+    /**
+     * 向集群其他实例发送请求
+     * @param request 请求
+     */
     public void sendToInstances(Request request) {
         for (Instance instance : instances) {
             String key = instance.getIp()+instance.getPort();

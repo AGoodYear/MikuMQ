@@ -10,6 +10,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 持久化消息相关数据库操作
+ * @author Aurora
+ */
 public class MessageDao {
     public static void insertMessage(DurableMessage message) {
         Connection connection = null;
@@ -31,7 +35,7 @@ public class MessageDao {
     public static List<DurableMessage> getAll() {
         Connection connection = null;
         PreparedStatement st = null;
-        ResultSet rs = null;
+        ResultSet rs;
         List<DurableMessage> list = new ArrayList<>();
         try {
             connection = JDBCUtils.getConnection();

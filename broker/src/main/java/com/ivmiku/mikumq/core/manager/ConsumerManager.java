@@ -26,10 +26,19 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class ConsumerManager {
     private final Server server;
+    /**
+     * 存在待发送信息的消费者队列
+     */
     private final BlockingQueue<String> waitingQueue = new LinkedBlockingQueue<>();
+    /**
+     * 扫描消费者队列并进行发送的线程
+     */
     private final ExecutorService processThread;
     @Setter
     private HashMap<String, String> params;
+    /**
+     * 阻塞的消费者队列，待有信息时主动推送给消费者
+     */
     private final BlockingQueue<String> listenQueue = new LinkedBlockingQueue<>();
     private final ExecutorService listenThread;
 
@@ -44,6 +53,7 @@ public class ConsumerManager {
                     try {
                         String consumerTag = waitingQueue.take();
                         processThread.execute(() -> {
+                            //信息发送给消费者
                             MessageRecorder recorder = server.getItemManager().getUnreadMessage(consumerTag).removeFirst();
                             Message message = server.getItemManager().getMessage(recorder.getMessageId());
                             boolean requireAck = server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
@@ -73,6 +83,7 @@ public class ConsumerManager {
             while (true) {
                 try {
                     String consumerTag = listenQueue.take();
+                    //消费者不在线或没有新消息则重新入队
                     if (server.getItemManager().ifHaveMessage(consumerTag) && server.getSession(consumerTag) != null) {
                         try {
                             listenQueue.put(consumerTag);
@@ -81,6 +92,7 @@ public class ConsumerManager {
                         }
                     } else {
                         listenThread.execute(() -> {
+                            //信息发送给消费者
                             MessageRecorder recorder = server.getItemManager().getUnreadMessage(consumerTag).removeFirst();
                             Message message = server.getItemManager().getMessage(recorder.getMessageId());
                             boolean requireAck = server.getItemManager().getQueue(recorder.getQueueName()).isAutoAck();
@@ -136,6 +148,11 @@ public class ConsumerManager {
         }
     }
 
+    /**
+     * 通知集群其他实例同步操作
+     * @param queueName 队列名称
+     * @param messageId 消息id
+     */
     public void notifyAck(String queueName, String messageId) {
         if (server.isCluster()) {
             WaitingAck waitingAck = new WaitingAck();
@@ -145,6 +162,12 @@ public class ConsumerManager {
         }
     }
 
+    /**
+     * 通知集群其他实例同步操作
+     * @param queueName 队列名称
+     * @param messageId 消息id
+     * @param consumerTag 消费者tag
+     */
     public void notifyDelete(String queueName, String messageId, String consumerTag) {
         if (server.isCluster()) {
             DeleteMessage deleteMessage = new DeleteMessage();

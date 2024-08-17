@@ -25,7 +25,7 @@ public class JDBCUtils {
     static{
         PARAMS = ConfigUtil.getDbConfig();
         HikariConfig config = new HikariConfig();
-        if (PARAMS.get("database").equals("embedded")) {
+        if ("embedded".equals(PARAMS.get("database"))) {
             config.setJdbcUrl("jdbc:sqlite:./data/meta.db");
         } else {
             config.setJdbcUrl(PARAMS.get("database.url"));

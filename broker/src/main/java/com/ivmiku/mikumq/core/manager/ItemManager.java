@@ -133,6 +133,7 @@ public class ItemManager {
             List<String> list = messageList.computeIfAbsent(queueName, k -> new LinkedList<>());
             list.add(message.getId());
             if (!queue.getListener().isEmpty()) {
+                //轮询队列订阅者
                 Integer robin = BalancerUtil.getRobin(queueName);
                 if (robin >= queue.getListener().size()) {
                     robin %= queue.getListener().size();

@@ -13,12 +13,12 @@ import java.util.List;
  * @author Aurora
  */
 public class DurableUtil {
-    private static final RandomAccessFile messageFile;
+    private static final RandomAccessFile MESSAGE_FILE;
 
     static{
         createFile();
         try {
-            messageFile = new RandomAccessFile("./data/message", "rw");
+            MESSAGE_FILE = new RandomAccessFile("./data/message", "rw");
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -43,13 +43,13 @@ public class DurableUtil {
     public static DurableMessage writeMessage(Message message) {
         byte[] data = ObjectUtil.serialize(message);
         int start;
-        synchronized (messageFile) {
+        synchronized (MESSAGE_FILE) {
             try {
-                start = (int) messageFile.length();
-                messageFile.seek(messageFile.length());
-                messageFile.writeInt(1);
-                messageFile.writeInt(data.length);
-                messageFile.write(data);
+                start = (int) MESSAGE_FILE.length();
+                MESSAGE_FILE.seek(MESSAGE_FILE.length());
+                MESSAGE_FILE.writeInt(1);
+                MESSAGE_FILE.writeInt(data.length);
+                MESSAGE_FILE.write(data);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -62,17 +62,17 @@ public class DurableUtil {
 
     public static List<Message> readAllMessage() {
         List<Message> list = new ArrayList<>();
-        synchronized (messageFile) {
+        synchronized (MESSAGE_FILE) {
             try{
-                messageFile.seek(0);
+                MESSAGE_FILE.seek(0);
                 while (true) {
-                    int valid = messageFile.readInt();
-                    int length = messageFile.readInt();
+                    int valid = MESSAGE_FILE.readInt();
+                    int length = MESSAGE_FILE.readInt();
                     if (valid == 0) {
-                        messageFile.skipBytes(length);
+                        MESSAGE_FILE.skipBytes(length);
                     } else {
                         byte[] data = new byte[length];
-                        messageFile.readFully(data);
+                        MESSAGE_FILE.readFully(data);
                         Message message = ObjectUtil.deserialize(data);
                         list.add(message);
                     }
@@ -87,10 +87,10 @@ public class DurableUtil {
     }
 
     public static void invalidateMessage(int offset) {
-        synchronized (messageFile) {
+        synchronized (MESSAGE_FILE) {
             try {
-                messageFile.seek(offset);
-                messageFile.writeInt(0);
+                MESSAGE_FILE.seek(offset);
+                MESSAGE_FILE.writeInt(0);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

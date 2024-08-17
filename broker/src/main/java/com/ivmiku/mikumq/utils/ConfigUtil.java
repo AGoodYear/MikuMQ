@@ -1,7 +1,5 @@
 package com.ivmiku.mikumq.utils;
 
-import cn.hutool.core.lang.hash.Hash;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -37,6 +35,9 @@ public class ConfigUtil {
         map.put("heart.rate", (String) properties.get("server.heart.rate"));
         map.put("heart.timeout", (String) properties.get("server.heart.timeout"));
         map.put("cluster.mode", (String) properties.get("server.mode"));
+        map.put("readBufferSize", (String) properties.get("server.readBufferSize"));
+        map.put("writeBufferSize", (String) properties.get("server.writeBufferSize"));
+        map.put("writeBufferCapacity", (String) properties.get("server.writeBufferCapacity"));
         return map;
     }
 

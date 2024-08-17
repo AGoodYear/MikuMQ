@@ -2,6 +2,10 @@ package com.ivmiku.mikumq.tracing.entity;
 
 import lombok.Data;
 
+/**
+ * 队列相关信息
+ * @author Aurora
+ */
 @Data
 public class QueueInfo {
     private String name;
