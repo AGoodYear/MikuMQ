@@ -21,8 +21,10 @@ public class QueueDao {
         PreparedStatement st = null;
         try {
             connection = JDBCUtils.getConnection();
-            st = connection.prepareStatement("insert into queue values (?)");
+            st = connection.prepareStatement("insert into queue values (?, ?, ?)");
             st.setString(1, queue.getName());
+            st.setInt(2, queue.isAutoAck()?1:0);
+            st.setInt(3, queue.isDurable()?1:0);
             st.execute();
             st = connection.prepareStatement("insert into listener values (?, ?)");
             st.setString(1, queue.getName());
@@ -60,12 +62,14 @@ public class QueueDao {
         List<MessageQueue> list = new ArrayList<>();
         try {
             connection = JDBCUtils.getConnection();
-            st = connection.prepareStatement("select name from queue");
+            st = connection.prepareStatement("select name, auto_ack, durable from queue");
             rs = st.executeQuery();
             st = connection.prepareStatement("select tag from listener where queue = ?");
             while (rs.next()) {
                 MessageQueue queue = new MessageQueue();
                 queue.setName(rs.getString("name"));
+                queue.setAutoAck(rs.getInt("auto_ack") != 0);
+                queue.setDurable(rs.getInt("durable") != 0);
                 List<String> listener = new LinkedList<>();
                 st.setString(1, queue.getName());
                 ResultSet rs2 = st.executeQuery();

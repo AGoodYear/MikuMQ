@@ -25,6 +25,8 @@ public class DatabaseInitializr {
                     ");");
             PreparedStatement statement2 = connection.prepareStatement("CREATE TABLE IF NOT EXISTS \"queue\" (\n" +
                     "  \"name\" text(100) NOT NULL,\n" +
+                    "  \"auto_ack\" integer(1),\n" +
+                    "  \"durable\" integer(1),\n" +
                     "  PRIMARY KEY (\"name\")\n" +
                     ");");
             PreparedStatement statement3 = connection.prepareStatement("CREATE TABLE IF NOT EXISTS \"binding\" (\n" +
@@ -100,6 +102,8 @@ public class DatabaseInitializr {
                     ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
             PreparedStatement statement2 = connection.prepareStatement("CREATE TABLE IF NOT EXISTS `queue` (\n" +
                     "  `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,\n" +
+                    "  `auto_ack` tinyint(1) DEFAULT '1',\n" +
+                    "  `durable` tinyint(1) DEFAULT '0',\n" +
                     "  PRIMARY KEY (`name`)\n" +
                     ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
             PreparedStatement statement3 = connection.prepareStatement("CREATE TABLE IF NOT EXISTS `binding` (\n" +

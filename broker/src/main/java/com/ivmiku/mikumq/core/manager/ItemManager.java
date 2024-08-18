@@ -187,8 +187,10 @@ public class ItemManager {
             queueMap.put(queue.getName(), queue);
         }
         for (Binding binding : bindingList) {
-            ConcurrentHashMap<String, Binding> exchangeBindingMap = bindingMap.computeIfAbsent(binding.getExchangeName(), k -> new ConcurrentHashMap<>());
-            exchangeBindingMap.put(binding.getQueueName(), binding);
+            if (exchangeMap.containsKey(binding.getExchangeName()) && queueMap.containsKey(binding.getQueueName())) {
+                ConcurrentHashMap<String, Binding> exchangeBindingMap = bindingMap.computeIfAbsent(binding.getExchangeName(), k -> new ConcurrentHashMap<>());
+                exchangeBindingMap.put(binding.getQueueName(), binding);
+            }
         }
     }
 
