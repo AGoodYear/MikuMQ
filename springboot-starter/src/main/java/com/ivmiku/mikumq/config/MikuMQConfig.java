@@ -25,14 +25,12 @@ public class MikuMQConfig {
         map.put("port", properties.getPort());
         map.put("username", properties.getUsername());
         map.put("password", properties.getPassword());
+        map.put("writeBufferSize", String.valueOf(properties.getWriteBufferSize()));
+        map.put("readBufferSize", String.valueOf(properties.getReadBufferSize()));
+        map.put("writeBufferCapacity", String.valueOf(properties.getWriteBufferCapacity()));
         MikuTemplate template = new MikuTemplate();
         template.init(map);
         return template;
     }
 
-//    @Bean
-//    public ConsumerManager initConsumer() {
-//        List<String> consumerList = new ArrayList<>();
-//
-//    }
 }
