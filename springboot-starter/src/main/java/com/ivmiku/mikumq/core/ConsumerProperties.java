@@ -3,6 +3,10 @@ package com.ivmiku.mikumq.core;
 import com.ivmiku.mikumq.consumer.MessageProcessor;
 import lombok.Data;
 
+/**
+ * 消费者配置项
+ * @author Aurora
+ */
 @Data
 public class ConsumerProperties {
     private String tag;

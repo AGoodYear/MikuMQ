@@ -3,6 +3,10 @@ package com.ivmiku.mikumq.core;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * SpringBoot配置项
+ * @author Aurora
+ */
 @Data
 @ConfigurationProperties("mikumq")
 public class MikuProperties {

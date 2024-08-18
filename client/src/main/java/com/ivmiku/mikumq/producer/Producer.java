@@ -32,18 +32,24 @@ public class Producer {
         this.tag = tag;
     }
 
+    /**
+     * 设置连接
+     * @param client AioQuickClient
+     */
     public void setConnection(AioQuickClient client) {
         this.client = client;
     }
 
-    public AioSession getSession() {
-        return client.getSession();
-    }
-
+    /**
+     * 关闭连接
+     */
     public void shutdown() {
         client.shutdown();
     }
 
+    /**
+     * 向服务器注册自己
+     */
     public void startSession() {
         aliveSession = client.getSession();
         Register register = new Register();
@@ -61,6 +67,10 @@ public class Producer {
         }
     }
 
+    /**
+     * 通用发送请求函数
+     * @param request 请求
+     */
     public void sendRequest(Request request) {
         if (aliveSession != null) {
             try  {
@@ -79,21 +89,44 @@ public class Producer {
         }
     }
 
+    /**
+     * 创建交换机
+     * @param exchangeName 交换机名字
+     * @param type 类型
+     * @param durable 是否持久化
+     */
     public void declareExchange(String exchangeName, ExchangeType type, boolean durable) {
         DeclareExchange declareExchange = new DeclareExchange(exchangeName, type, durable);
         sendRequest(Request.setRequest(4, declareExchange));
     }
 
+    /**
+     * 创建绑定
+     * @param queueName 队列名称
+     * @param exchangeName 交换机名称
+     * @param bindingKey key
+     */
     public void declareBinding(String queueName, String exchangeName, String bindingKey) {
         DeclareBinding declareBinding = new DeclareBinding(exchangeName, queueName, bindingKey);
         sendRequest(Request.setRequest(6, declareBinding));
     }
 
+    /**
+     * 创建 队列
+     * @param queueName 队列名称
+     * @param autoAck 是否自动ack
+     * @param durable 是否持久化
+     */
     public void declareQueue(String queueName, boolean autoAck, boolean durable) {
         DeclareQueue declareQueue = new DeclareQueue(queueName, autoAck, durable);
         sendRequest(Request.setRequest(7, declareQueue));
     }
 
+    /**
+     * 发送消息
+     * @param exchangeName 交换机名称
+     * @param message 消息
+     */
     public void sendMessage(String exchangeName, Message message) {
         AddMessage addMessage = new AddMessage();
         addMessage.setMessage(message);

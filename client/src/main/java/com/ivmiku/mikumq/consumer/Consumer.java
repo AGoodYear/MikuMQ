@@ -46,18 +46,24 @@ public class Consumer {
     @Getter
     private boolean onHold;
 
+    /**
+     * 设置连接
+     * @param client AioQuickClient
+     */
     public void setConnection(AioQuickClient client) {
         this.client = client;
     }
 
-    public AioSession getSession() {
-        return client.getSession();
-    }
-
+    /**
+     * 关闭连接
+     */
     public void shutdown() {
         client.shutdown();
     }
 
+    /**
+     * 向服务器注册自己
+     */
     public void startSession() {
         aliveSession = client.getSession();
         Register register = new Register();
@@ -75,6 +81,10 @@ public class Consumer {
         }
     }
 
+    /**
+     * 通用发送请求函数
+     * @param request 请求
+     */
     public void sendRequest(Request request) {
         if (aliveSession != null) {
             WriteBuffer writeBuffer = aliveSession.writeBuffer();
@@ -86,7 +96,6 @@ public class Consumer {
             } catch (IOException e) {
                 aliveSession.close();
                 startSession();
-                writeBuffer = aliveSession.writeBuffer();
                 throw new RuntimeException(e);
             }
         } else {
@@ -102,6 +111,10 @@ public class Consumer {
         sendRequest(request);
     }
 
+    /**
+     * 订阅队列
+     * @param queueName 队列名字
+     */
     public void subscribe(String queueName) {
         Subscribe subscribe = new Subscribe();
         subscribe.setTag(tag);
@@ -109,6 +122,9 @@ public class Consumer {
         sendRequest(Request.setRequest(2, subscribe));
     }
 
+    /**
+     * 开始接受信息（PUSH）
+     */
     public void queryMessage() {
         ScheduledExecutorService service = new ScheduledThreadPoolExecutor(1);
         runnableFuture = service.scheduleWithFixedDelay(() -> {
@@ -122,10 +138,16 @@ public class Consumer {
         }, 0L, queryDelay, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 停止接收信息
+     */
     public void stopQuery() {
         runnableFuture.cancel(true);
     }
 
+    /**
+     * 请求一个信息
+     */
     public void queryOne() {
         MessageQuery query = new MessageQuery();
         query.setTag(tag);

@@ -8,6 +8,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * 根据配置初始化消费者
+ * @author Aurora
+ */
 @Component
 public class ConsumerInitializr implements CommandLineRunner {
     @Resource
