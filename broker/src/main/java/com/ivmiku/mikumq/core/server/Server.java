@@ -292,6 +292,7 @@ public class Server {
             case 10 -> {
                 WaitingAck waitingAck = ObjectUtil.deserialize(request.getPayload());
                 itemManager.waitingForAck(waitingAck.getMessageId(), waitingAck.getQueueName());
+                itemManager.removeFromConsumer(waitingAck.getConsumerTag(), waitingAck.getMessageId());
             }
             //消费死信队列
             case 11 -> {

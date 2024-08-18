@@ -16,4 +16,5 @@ import java.io.Serializable;
 public class WaitingAck implements Serializable {
     private String messageId;
     private String queueName;
+    private String consumerTag;
 }

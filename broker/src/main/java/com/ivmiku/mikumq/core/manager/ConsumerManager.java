@@ -68,7 +68,7 @@ public class ConsumerManager {
                                 notifyDelete(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             } else {
                                 server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
-                                notifyAck(recorder.getQueueName(), recorder.getMessageId());
+                                notifyAck(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             }
                         });
 
@@ -107,7 +107,7 @@ public class ConsumerManager {
                                 notifyDelete(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             } else {
                                 server.getItemManager().waitingForAck(message.getId(), recorder.getQueueName());
-                                notifyAck(recorder.getQueueName(), recorder.getMessageId());
+                                notifyAck(recorder.getQueueName(), recorder.getMessageId(), consumerTag);
                             }
                         });
                     }
@@ -153,11 +153,12 @@ public class ConsumerManager {
      * @param queueName 队列名称
      * @param messageId 消息id
      */
-    public void notifyAck(String queueName, String messageId) {
+    public void notifyAck(String queueName, String messageId, String consumerTag) {
         if (server.isCluster()) {
             WaitingAck waitingAck = new WaitingAck();
             waitingAck.setMessageId(messageId);
             waitingAck.setQueueName(queueName);
+            waitingAck.setConsumerTag(consumerTag);
             server.getClusterManager().sendToInstances(Request.setRequest(10, waitingAck));
         }
     }
